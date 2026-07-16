@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/Rileyh-git/loopfare/security/advisories/new
+    about: Report vulnerabilities privately. Never publish exploit details or credentials in an issue.
+  - name: Documentation and support
+    url: https://api-production-dd0a0.up.railway.app/docs/support
+    about: Read support boundaries and the information to include in a request.

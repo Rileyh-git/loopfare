@@ -1,6 +1,6 @@
 # Security model
 
-This document describes the security properties and trust boundaries of Loopfare 0.2.0. It is a design description, not a security certification. Review it before exposing an instance to untrusted sellers, buyers, or origins.
+This document describes the security properties and trust boundaries of Loopfare 0.2.1. It is a design description, not a security certification. Review it before exposing an instance to untrusted sellers, buyers, or origins.
 
 Security reports should follow [the repository security policy](../SECURITY.md).
 

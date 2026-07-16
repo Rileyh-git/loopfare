@@ -58,7 +58,7 @@ npm run dev                         # watch the API source
 npm run typecheck                   # typecheck API and CLI
 npm test                            # API integration/security tests
 npm run build                       # compile both workspaces
-npm run check                       # typecheck, test, and build
+npm run check                       # typecheck, build, API/CLI tests, package dry run
 npm audit --omit=dev                # production dependency audit
 npm run cli -- --help               # run CLI source in development
 npm run cli -- --json config        # inspect redacted local CLI state
@@ -151,7 +151,7 @@ When adding or changing an environment variable, update:
 
 ## Testing
 
-The API test suite uses Node's test runner through `tsx`, a temporary SQLite directory, and Hono's in-process request interface. It does not require a listening port or facilitator for development-payment tests.
+The API test suite uses Node's test runner through `tsx`, a temporary SQLite directory, and Hono's in-process request interface. It does not require a listening port or facilitator for development-payment tests. The CLI suite runs the compiled executable with isolated temporary home directories, verifies secret-safe wallet output and POSIX file modes, tests the hosted default, and injects a fake fetch implementation into `doctor`; it does not write test accounts or budgets to the hosted service.
 
 Tests should be independent of execution order. The current signup rate limiter is process-local, so use direct database setup when a test does not specifically exercise signup.
 

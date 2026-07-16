@@ -58,6 +58,14 @@ No. Public beta signup validates address syntax and rate-limits requests but doe
 
 In `~/.loopfare/config.json`, inside a mode `0700` directory with a mode `0600` file. Environment variables can override the seller or wallet key for automation.
 
+### How do I install and test the CLI?
+
+During the beta, clone the public repository, run `npm ci`, build the CLI workspace, and use `npm link -w @loopfare/cli`. Run `loopfare doctor` first; it defaults to the hosted Base Sepolia service and does not create an account or spend assets.
+
+### Can I test a complete payment without faucet assets?
+
+Yes, locally. Start the development server from the repository and call its demo with `loopfare call http://localhost:4021/demo/v1/fortune --dev`. Production rejects this development-payment mechanism. The hosted paid demo remains disabled until the operator configures its receiving wallet.
+
 ## Pricing and budgets
 
 ### What prices are accepted?

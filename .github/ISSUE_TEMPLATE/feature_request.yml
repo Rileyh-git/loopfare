@@ -1,0 +1,44 @@
+name: Feature request
+description: Propose a focused improvement to Loopfare.
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What user or operator problem should Loopfare solve?
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+      description: Describe behavior and success criteria rather than only an implementation.
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Primary surface
+      options:
+        - CLI
+        - Seller API
+        - Paid proxy / x402
+        - Website or documentation
+        - Operations and self-hosting
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: checkboxes
+    id: network
+    attributes:
+      label: Beta boundaries
+      options:
+        - label: I understand the public beta is Base Sepolia and this request does not assume mainnet availability.
+          required: true

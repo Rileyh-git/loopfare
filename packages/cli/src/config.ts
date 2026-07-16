@@ -27,6 +27,8 @@ export type LoopfareConfig = {
   spentDay?: string;
 };
 
+export const DEFAULT_API_URL = "https://api-production-dd0a0.up.railway.app";
+
 const DIR = join(homedir(), ".loopfare");
 const FILE = join(DIR, "config.json");
 const LOCK_FILE = `${FILE}.lock`;
@@ -49,7 +51,7 @@ export function loadConfig(): LoopfareConfig {
       }
     }
     return {
-      apiUrl: process.env.LOOPFARE_API_URL ?? raw.apiUrl ?? "http://localhost:4021",
+      apiUrl: process.env.LOOPFARE_API_URL ?? raw.apiUrl ?? DEFAULT_API_URL,
       apiKey: process.env.LOOPFARE_API_KEY ?? raw.apiKey,
       email: raw.email,
       privateKey,
@@ -60,7 +62,7 @@ export function loadConfig(): LoopfareConfig {
       spentDay: raw.spentDay,
     };
   } catch {
-    return { apiUrl: process.env.LOOPFARE_API_URL ?? "http://localhost:4021" };
+    return { apiUrl: process.env.LOOPFARE_API_URL ?? DEFAULT_API_URL };
   }
 }
 
@@ -142,11 +144,11 @@ export function reconcileDailySpend(reservedUsd: number, settledUsd: number) {
 }
 
 function readStoredConfig(): LoopfareConfig {
-  if (!existsSync(FILE)) return { apiUrl: "http://localhost:4021" };
+  if (!existsSync(FILE)) return { apiUrl: DEFAULT_API_URL };
   try {
     return JSON.parse(readFileSync(FILE, "utf8")) as LoopfareConfig;
   } catch {
-    return { apiUrl: "http://localhost:4021" };
+    return { apiUrl: DEFAULT_API_URL };
   }
 }
 

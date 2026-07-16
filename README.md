@@ -1,5 +1,7 @@
 # Loopfare
 
+[![CI](https://github.com/Rileyh-git/loopfare/actions/workflows/ci.yml/badge.svg)](https://github.com/Rileyh-git/loopfare/actions/workflows/ci.yml)
+
 **Make every API call pay its fare.**
 
 Loopfare is an x402 v2 reverse proxy for Base. Sellers put a payment gate in front of an existing HTTP API; AI agents and other buyers pay per request in USDC without buyer accounts, subscriptions, or API keys.
@@ -37,6 +39,27 @@ Loopfare paid proxy ── 2. HTTP 402 + PAYMENT-REQUIRED
 - Storage: SQLite in WAL mode on a persistent Railway volume
 - Runtime: Node.js 22+ and Hono
 
+## Try the CLI safely
+
+The public beta defaults to the hosted Base Sepolia service. A first diagnostic and wallet test does not require an account, faucet assets, or blockchain payment:
+
+```bash
+git clone https://github.com/Rileyh-git/loopfare.git
+cd loopfare
+# Optional when nvm is installed: nvm use
+npm ci
+npm run build -w @loopfare/cli
+npm link -w @loopfare/cli
+
+loopfare doctor
+loopfare wallet create
+loopfare config
+```
+
+`wallet create` stores the private key locally without printing it. Back up `~/.loopfare/config.json` securely before funding the address. The CLI package is prepared for npm publication but is not published yet, so the public repository is the installation source for this beta.
+
+To exercise the complete payment workflow without blockchain assets, continue with the local quickstart below. It uses an isolated development-payment header that production refuses to accept.
+
 ## Local quickstart
 
 ```bash
@@ -57,6 +80,7 @@ npm run build -w @loopfare/cli
 npm link -w @loopfare/cli
 
 loopfare set-api http://localhost:4021
+loopfare doctor
 loopfare signup --email you@example.com --json
 loopfare projects create \
   --name "Weather API" \
@@ -161,7 +185,7 @@ npm run check
 npm audit --omit=dev
 ```
 
-`npm run check` runs strict TypeScript checks, the API test suite, and production builds for both workspaces.
+`npm run check` runs strict TypeScript checks, production builds, API integration tests, clean-home CLI smoke tests, documentation link validation, and an npm package dry run.
 
 ## Railway deployment
 

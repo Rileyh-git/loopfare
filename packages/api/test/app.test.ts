@@ -67,12 +67,20 @@ test("serves every public manual as accessible HTML and raw Markdown", async () 
 });
 
 test("reports liveness and database readiness", async () => {
-  const [health, ready] = await Promise.all([
+  const [metadata, health, ready] = await Promise.all([
+    app.request("/api"),
     app.request("/health"),
     app.request("/health/ready"),
   ]);
+  assert.equal(metadata.status, 200);
+  const service = await json(metadata);
+  assert.equal(service.name, "loopfare");
+  assert.equal(service.version, "0.2.1");
+  assert.equal(service.network, "base-sepolia");
   assert.equal(health.status, 200);
-  assert.equal((await json(health)).ok, true);
+  const healthReport = await json(health);
+  assert.equal(healthReport.ok, true);
+  assert.equal(healthReport.version, "0.2.1");
   assert.equal(ready.status, 200);
 });
 

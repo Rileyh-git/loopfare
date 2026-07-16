@@ -5,6 +5,7 @@ import { wrapFetchWithPayment, x402HTTPClient } from "@x402/fetch";
 import { x402Client } from "@x402/core/client";
 import { ExactEvmScheme } from "@x402/evm/exact/client";
 import { api } from "./api.js";
+import { runDoctor } from "./doctor.js";
 import {
   configPath,
   currentDailySpend,
@@ -16,13 +17,14 @@ import {
   saveConfig,
 } from "./config.js";
 import { fail, print } from "./output.js";
+import { LOOPFARE_VERSION } from "./version.js";
 
 const program = new Command();
 
 program
   .name("loopfare")
   .description("Charge AI agents per request — x402 paywall CLI for Base")
-  .version("0.2.0")
+  .version(LOOPFARE_VERSION)
   .option("--json", "Machine-readable JSON output", false);
 
 function jsonFlag(): boolean {
@@ -64,7 +66,7 @@ program
 program
   .command("set-api")
   .description("Set API base URL")
-  .argument("<url>", "e.g. http://localhost:4021")
+  .argument("<url>", "e.g. https://api-production-dd0a0.up.railway.app")
   .action((url: string) => {
     const parsed = new URL(url);
     if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
@@ -72,6 +74,24 @@ program
     }
     const cfg = saveConfig({ apiUrl: parsed.toString().replace(/\/$/, "") });
     print({ apiUrl: cfg.apiUrl }, jsonFlag());
+  });
+
+program
+  .command("doctor")
+  .description("Check runtime, API, wallet, budget, and config readiness")
+  .option("--timeout <ms>", "Network timeout in milliseconds", (value) => Number(value), 5_000)
+  .action(async (opts: { timeout: number }) => {
+    const j = jsonFlag();
+    try {
+      if (!Number.isInteger(opts.timeout) || opts.timeout < 250 || opts.timeout > 30_000) {
+        throw new Error("Doctor timeout must be an integer from 250 to 30000 milliseconds");
+      }
+      const report = await runDoctor(fetch, opts.timeout);
+      print(report, j);
+      if (!report.ok) process.exitCode = 1;
+    } catch (error) {
+      fail(error, j);
+    }
   });
 
 // ── auth ──────────────────────────────────────────────────────────

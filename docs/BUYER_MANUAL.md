@@ -10,7 +10,7 @@ You need:
 
 1. Node.js 22 or later.
 2. The Loopfare CLI built from this repository.
-3. The HTTPS URL of a Loopfare deployment.
+3. The hosted beta or the HTTPS URL of another Loopfare deployment.
 4. Base Sepolia test USDC for real x402 test payments, or a local Loopfare server with development payments enabled.
 
 Build and link the current CLI:
@@ -19,10 +19,10 @@ Build and link the current CLI:
 npm ci
 npm run build -w @loopfare/cli
 npm link -w @loopfare/cli
-loopfare set-api https://loopfare.example
+loopfare doctor
 ```
 
-`set-api` is needed for budget operations. `loopfare call` accepts a full paid URL and can also call other compatible x402 endpoints directly.
+The CLI defaults to `https://api-production-dd0a0.up.railway.app`. Use `loopfare set-api https://loopfare.example` for another hosted instance or `loopfare set-api http://localhost:4021` for local development. `loopfare call` accepts a full paid URL and can also call other compatible x402 endpoints directly.
 
 ## Wallet safety first
 
@@ -43,7 +43,7 @@ export EVM_PRIVATE_KEY=0xREDACTED
 # LOOPFARE_PRIVATE_KEY is also supported when EVM_PRIVATE_KEY is unset.
 ```
 
-Process environment variables override the stored private key. Keep the stored wallet address consistent with the environment key; `wallet show` and budget setup can otherwise refer to the stored address while a paid call signs with the environment key.
+Process environment variables override the stored private key. The CLI always derives the effective address from that key for `wallet show`, budget operations, and paid calls instead of trusting a stale stored address.
 
 ## Complete first-payment workflow
 
@@ -117,7 +117,7 @@ loopfare call https://loopfare.example/p/tools/v1/summarize \
   --data '{"text":"A short passage"}'
 ```
 
-When `--data` is present, the CLI sends `Content-Type: application/json`; the current client does not provide a way to override that content type. GET and HEAD calls cannot include `--data`.
+When `--data` is present, the CLI sends `Content-Type: application/json` unless an explicit `Content-Type` header is supplied. GET and HEAD calls cannot include `--data`.
 
 The result includes:
 

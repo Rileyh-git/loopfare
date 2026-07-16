@@ -14,13 +14,14 @@ You will run the Loopfare website, API, and CLI; create a seller project; put an
 - An HTTPS API origin you control for public testing
 - For real testnet payments: Base Sepolia ETH and USDC in a disposable buyer wallet
 
-The CLI is not published to npm during the beta. Run it from this repository or use `npm link` as shown below.
+The CLI package is ready for publication but is not on npm during this beta. Install it from the public repository with `npm link` as shown below.
 
 ## 1. Install and start Loopfare
 
 ```bash
 git clone https://github.com/Rileyh-git/loopfare.git
 cd loopfare
+# Optional when nvm is installed: nvm use
 cp .env.example .env
 npm ci
 npm run dev
@@ -40,10 +41,13 @@ In a second terminal, from the repository root:
 npm run build -w @loopfare/cli
 npm link -w @loopfare/cli
 loopfare --version
+loopfare doctor
 loopfare set-api http://localhost:4021
 ```
 
 Every command supports the top-level `--json` option. Put it before the subcommand, for example `loopfare --json projects list`.
+
+On a fresh machine, `doctor` checks Node.js, the hosted Base Sepolia service, local configuration permissions, wallet state, and budget state. The CLI defaults to `https://api-production-dd0a0.up.railway.app`; this local tutorial then changes it to the server running on your machine.
 
 ## 3. Create a seller account
 
@@ -142,6 +146,14 @@ loopfare budget show --json
 ## Hosted beta
 
 The public documentation and API are available at `https://api-production-dd0a0.up.railway.app`. The paid demo remains disabled until the operator supplies a receiving wallet. Seller signup is available, but you must use an API origin and wallet you control.
+
+For a no-account hosted connectivity test after installing the CLI:
+
+```bash
+loopfare doctor
+```
+
+For a no-funds end-to-end payment simulation, use the local development workflow in this guide. A real hosted x402 test currently requires a seller-created route plus Base Sepolia test assets.
 
 ## Next steps
 

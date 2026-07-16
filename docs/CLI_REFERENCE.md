@@ -1,16 +1,17 @@
 # Loopfare CLI reference
 
-This is the complete command reference for Loopfare CLI 0.2. The CLI combines seller administration with a local x402 buyer wallet.
+This is the complete command reference for Loopfare CLI 0.2.1. The CLI combines seller administration with a local x402 buyer wallet.
 
 ## Install from the repository
 
-The CLI package is currently private and is not published to npm. From a Loopfare checkout:
+The CLI package contains public npm metadata but is not published to npm yet. Install from the public Loopfare repository:
 
 ```bash
 npm ci
 npm run build -w @loopfare/cli
 npm link -w @loopfare/cli
 loopfare --version
+loopfare doctor
 ```
 
 Node.js 22 or later is required.
@@ -57,7 +58,7 @@ Environment precedence:
 
 | Environment variable | Overrides |
 | --- | --- |
-| `LOOPFARE_API_URL` | Stored `apiUrl`; default is `http://localhost:4021`. |
+| `LOOPFARE_API_URL` | Stored `apiUrl`; default is `https://api-production-dd0a0.up.railway.app`. |
 | `LOOPFARE_API_KEY` | Stored seller `apiKey`. |
 | `EVM_PRIVATE_KEY` | Stored buyer private key; highest private-key precedence. |
 | `LOOPFARE_PRIVATE_KEY` | Stored buyer private key when `EVM_PRIVATE_KEY` is unset. |
@@ -71,6 +72,7 @@ There are no environment overrides for the budget token, daily limit, or local s
 | --- | --- |
 | `config` | Show redacted local configuration. |
 | `set-api <url>` | Save the Loopfare API base URL. |
+| `doctor` | Check runtime, API, wallet, budget, and configuration readiness. |
 | `signup --email <email>` | Create a seller account and save its API key. |
 | `login --api-key <key>` | Save an existing seller key. |
 | `whoami` | Validate the seller key and show account identity. |
@@ -114,6 +116,22 @@ Arguments:
 | `<url>` | Yes | Base URL using `http` or `https`, such as `https://loopfare.example`. |
 
 The CLI parses and normalizes the URL, removes one trailing slash, saves it, and prints the result. An active `LOOPFARE_API_URL` environment variable remains the effective value for that process, but environment overrides are never persisted into the config file implicitly.
+
+## `doctor`
+
+```text
+loopfare doctor [--timeout <ms>]
+```
+
+Checks:
+
+- Node.js major-version support;
+- `GET /api` and `GET /health/ready` on the effective service;
+- advertised application version, network, protocol, and demo availability;
+- whether seller, wallet, and budget configuration exists; and
+- whether the local configuration file has owner-only permissions on POSIX systems.
+
+The default timeout is 5000 milliseconds and the accepted range is 250–30000. The command never prints private keys, complete seller keys, or budget tokens. It exits nonzero when the configured API is unreachable or not ready, while missing optional seller/wallet setup is reported through `next` steps.
 
 ## `signup`
 

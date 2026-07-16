@@ -1,0 +1,72 @@
+name: Bug report
+description: Report reproducible Loopfare API, proxy, website, docs, or CLI behavior.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve Loopfare. Do not include private keys, API keys, budget tokens, payment signatures, or private user data. Report vulnerabilities through GitHub private vulnerability reporting instead.
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Surface
+      options:
+        - CLI
+        - Seller API
+        - Paid proxy / x402
+        - Website or documentation
+        - Self-hosting / Railway
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Use `loopfare --version`, `GET /api`, or the commit SHA.
+      placeholder: 0.2.1
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, Node.js version, network, and hosted or self-hosted deployment.
+      placeholder: macOS 15, Node 22, Base Sepolia, hosted beta
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      description: Provide the smallest safe reproduction with secrets redacted.
+      placeholder: |
+        1. Run ...
+        2. Request ...
+        3. Observe ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include status codes, safe error output, and an `X-Request-Id` when available.
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety check
+      options:
+        - label: I removed all private keys, API keys, budget tokens, signatures, and personal data.
+          required: true
+        - label: This is not a security vulnerability requiring private disclosure.
+          required: true
