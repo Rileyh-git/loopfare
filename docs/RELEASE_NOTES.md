@@ -2,12 +2,19 @@
 
 Loopfare follows semantic versioning for application releases. During the `0.x` beta, minor releases may include API or operational changes that require explicit upgrade review.
 
+## 0.2.2 — trusted npm release
+
+- Publish `@loopfare/cli` through npm Trusted Publishing with GitHub Actions OIDC provenance.
+- Replace source-install instructions with the public npm install and no-install `npx` paths.
+- Keep repository, application, CLI, package metadata, tests, and public references on one release version.
+- Preserve the source-link workflow only for contributors developing the CLI locally.
+
 ## 0.2.1 — public CLI readiness
 
 - Default fresh CLI installs to the hosted Base Sepolia service while preserving explicit local and self-hosted configuration.
 - Add `loopfare doctor` for runtime, service, wallet, budget, and file-permission diagnostics without exposing secrets.
 - Add clean-home CLI smoke tests and npm package validation to the required CI gate.
-- Prepare `@loopfare/cli` metadata and packaged files for a future public npm release.
+- Prepare `@loopfare/cli` metadata and packaged files for public npm distribution.
 - Add a no-funds source-install quickstart, package README, and public issue templates.
 - Correct wallet environment-key and request content-type documentation.
 

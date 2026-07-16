@@ -209,7 +209,7 @@ Maintainers may require a clean rebase and a passing automated check before merg
 
 ## Release process
 
-The repository currently deploys private npm workspaces; publishing `@loopfare/api` or `@loopfare/cli` to a registry is not part of the release flow.
+`@loopfare/api` remains private. `@loopfare/cli` is public on npm. Pushing a tag matching `v<packages/cli.version>` runs `.github/workflows/publish.yml`, revalidates the repository, and publishes the CLI through npm Trusted Publishing with provenance.
 
 For a release candidate:
 
@@ -221,7 +221,7 @@ For a release candidate:
 6. For payment changes, complete an approved Base Sepolia end-to-end test.
 7. Create and verify a production volume backup.
 8. Deploy the reviewed commit, run the verification checklist, and observe it.
-9. Tag the exact commit only after the release is accepted.
+9. After the release is accepted, push the exact matching `vX.Y.Z` tag, verify the publish workflow succeeds, and confirm the npm package version and provenance.
 
 Mainnet releases require the additional mainnet gate and independent security review.
 

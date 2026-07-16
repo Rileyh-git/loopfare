@@ -44,19 +44,14 @@ Loopfare paid proxy ── 2. HTTP 402 + PAYMENT-REQUIRED
 The public beta defaults to the hosted Base Sepolia service. A first diagnostic and wallet test does not require an account, faucet assets, or blockchain payment:
 
 ```bash
-git clone https://github.com/Rileyh-git/loopfare.git
-cd loopfare
-# Optional when nvm is installed: nvm use
-npm ci
-npm run build -w @loopfare/cli
-npm link -w @loopfare/cli
+npm install --global @loopfare/cli@latest
 
 loopfare doctor
 loopfare wallet create
 loopfare config
 ```
 
-`wallet create` stores the private key locally without printing it. Back up `~/.loopfare/config.json` securely before funding the address. The CLI package is prepared for npm publication but is not published yet, so the public repository is the installation source for this beta.
+Node.js 22 or newer is required. The same npm command upgrades an existing installation. For a no-install connectivity check, run `npx --yes @loopfare/cli@latest doctor`. `wallet create` stores the private key locally without printing it. Back up `~/.loopfare/config.json` securely before funding the address.
 
 To exercise the complete payment workflow without blockchain assets, continue with the local quickstart below. It uses an isolated development-payment header that production refuses to accept.
 
@@ -72,7 +67,7 @@ npm run dev
 
 The website and API start at [http://localhost:4021](http://localhost:4021).
 
-Run the CLI from this checkout in another terminal:
+Run the CLI from this checkout in another terminal. The link step is for local CLI development; ordinary users should install the published package as shown above.
 
 ```bash
 # Optional: make `loopfare` available globally while developing
@@ -85,13 +80,13 @@ loopfare signup --email you@example.com --json
 loopfare projects create \
   --name "Weather API" \
   --slug weather \
-  --pay-to 0xYourReceivingAddress \
+  --pay-to 0x0000000000000000000000000000000000000001 \
   --json
 loopfare protect \
   --project PROJECT_ID \
   --origin https://httpbin.org \
   --path "/*" \
-  --price "$0.001" \
+  --price '$0.001' \
   --json
 ```
 
@@ -100,10 +95,10 @@ Use local dev payment mode without crypto:
 ```bash
 loopfare wallet create --json
 loopfare budget set --daily 5 --json
-loopfare call http://localhost:4021/demo/v1/fortune --dev --json
+loopfare call http://localhost:4021/p/weather/get --dev --json
 ```
 
-`ALLOW_PRIVATE_ORIGINS=true` is intended only for local development. It lets a project proxy a local test server.
+The `0x000…0001` receiving address is a local-development placeholder; never send assets to it. Use an address you control for testnet payments. `ALLOW_PRIVATE_ORIGINS=true` is intended only for local development. It lets a project proxy a local test server.
 
 ## CLI
 
@@ -111,7 +106,12 @@ All commands accept the top-level `--json` flag for machine-readable output.
 
 | Command | Description |
 | --- | --- |
+| `loopfare doctor` | Check runtime, hosted service, wallet, budget, and configuration readiness |
+| `loopfare config` | Show redacted local configuration |
+| `loopfare set-api <url>` | Select a hosted, local, or self-hosted Loopfare service |
 | `loopfare signup --email …` | Create a seller account and store the one-time API key |
+| `loopfare login --api-key …` | Store an existing seller API key |
+| `loopfare whoami` | Validate the active seller identity |
 | `loopfare rotate-key` | Replace the active seller API key |
 | `loopfare projects create/list/get/delete` | Manage seller projects |
 | `loopfare protect` | Add a paid route in front of an origin |

@@ -26,16 +26,14 @@ Loopfare matches `/v1/forecast`, collects the configured payment, and forwards t
 You need:
 
 1. The public HTTPS URL of the Loopfare service.
-2. Node.js 22 or later and the Loopfare CLI built from this repository.
+2. Node.js 22 or later and the Loopfare CLI installed from npm.
 3. A publicly reachable HTTP or HTTPS origin API.
 4. An EVM address you control on the selected Base network. This is the project's `payTo` address; Loopfare never needs its private key.
 
-Build and link the current private-beta CLI:
+Install the current public CLI:
 
 ```bash
-npm ci
-npm run build -w @loopfare/cli
-npm link -w @loopfare/cli
+npm install --global @loopfare/cli@latest
 loopfare --version
 ```
 
@@ -353,7 +351,7 @@ The service applies an API limit of 300 requests per minute per client identifie
 ## Beta limitations
 
 - The supported public-beta network is Base Sepolia; no real-value mainnet launch is implied.
-- The current CLI is built from the repository and is not published as a public npm package.
+- The public CLI is distributed as `@loopfare/cli` on npm and still targets a Base Sepolia beta by default.
 - There is no seller dashboard, email verification, email-based key recovery, project editing, refunds workflow, invoicing, or tax reporting.
 - The proxy does not pass buyer cookies or authorization to the origin, follow origin redirects, or support private origins in production.
 - SQLite deployment requires one application replica and a persistent-volume backup plan.

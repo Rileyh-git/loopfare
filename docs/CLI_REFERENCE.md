@@ -1,20 +1,22 @@
 # Loopfare CLI reference
 
-This is the complete command reference for Loopfare CLI 0.2.1. The CLI combines seller administration with a local x402 buyer wallet.
+This is the complete command reference for Loopfare CLI 0.2.2. The CLI combines seller administration with a local x402 buyer wallet.
 
-## Install from the repository
+## Install
 
-The CLI package contains public npm metadata but is not published to npm yet. Install from the public Loopfare repository:
+Node.js 22 or later is required. Install the current public release from npm:
 
 ```bash
-npm ci
-npm run build -w @loopfare/cli
-npm link -w @loopfare/cli
+npm install --global @loopfare/cli@latest
 loopfare --version
 loopfare doctor
 ```
 
-Node.js 22 or later is required.
+For a no-install connectivity check:
+
+```bash
+npx --yes @loopfare/cli@latest doctor
+```
 
 ## Syntax and global options
 
@@ -414,7 +416,7 @@ Options:
 | Option | Default | Meaning |
 | --- | --- | --- |
 | `-X, --method <method>` | `GET` | `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, or `OPTIONS`; case-insensitive input. |
-| `-d, --data <body>` | None | Request body. GET and HEAD reject it. When present, the client forces `Content-Type: application/json`. |
+| `-d, --data <body>` | None | Request body. GET and HEAD reject it. Defaults to `Content-Type: application/json` unless an explicit content type is supplied with `--header`. |
 | `-H, --header <header...>` | None | One or more `Key: Value` extra headers. Entries without `:` are ignored. |
 | `--dev` | Off | Send the local-only `LOOPFARE-DEV-PAYMENT: ok` header instead of x402 payment. |
 | `--no-budget` | Off | Explicitly allow a real payment without local budget enforcement. |

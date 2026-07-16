@@ -60,7 +60,7 @@ In `~/.loopfare/config.json`, inside a mode `0700` directory with a mode `0600` 
 
 ### How do I install and test the CLI?
 
-During the beta, clone the public repository, run `npm ci`, build the CLI workspace, and use `npm link -w @loopfare/cli`. Run `loopfare doctor` first; it defaults to the hosted Base Sepolia service and does not create an account or spend assets.
+Install Node.js 22 or newer, then run `npm install --global @loopfare/cli@latest`. Run `loopfare doctor` first; it defaults to the hosted Base Sepolia service and does not create an account or spend assets. For a no-install check, run `npx --yes @loopfare/cli@latest doctor`.
 
 ### Can I test a complete payment without faucet assets?
 

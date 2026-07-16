@@ -9,16 +9,14 @@ The current public beta is **Base Sepolia** (`eip155:84532`). Base Sepolia asset
 You need:
 
 1. Node.js 22 or later.
-2. The Loopfare CLI built from this repository.
+2. The Loopfare CLI installed from npm.
 3. The hosted beta or the HTTPS URL of another Loopfare deployment.
 4. Base Sepolia test USDC for real x402 test payments, or a local Loopfare server with development payments enabled.
 
-Build and link the current CLI:
+Install the current public CLI:
 
 ```bash
-npm ci
-npm run build -w @loopfare/cli
-npm link -w @loopfare/cli
+npm install --global @loopfare/cli@latest
 loopfare doctor
 ```
 
@@ -275,6 +273,6 @@ It reports the config path, API URL, redacted API-key prefix, wallet address, wh
 - Budget state is application/local state, not a smart-contract allowance or bank-style control.
 - Concurrent CLI processes serialize local budget reservation through a short-lived lock. A stale lock older than 30 seconds is recovered; otherwise retry the command if another process is updating the budget.
 - There is no wallet balance command, key export command, hardware-wallet integration, refund workflow, or transaction-history explorer in the CLI.
-- The CLI is currently built from the repository rather than installed from a public package registry.
+- The CLI is publicly distributed as `@loopfare/cli` on npm.
 
 Every command and flag is listed in [CLI_REFERENCE.md](./CLI_REFERENCE.md). Sellers should read [SELLER_MANUAL.md](./SELLER_MANUAL.md).

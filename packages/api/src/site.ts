@@ -5,6 +5,7 @@ type WebsiteOptions = {
 };
 
 const githubUrl = "https://github.com/Rileyh-git/loopfare";
+const npmUrl = "https://www.npmjs.com/package/@loopfare/cli";
 
 export function websiteHtml(options: WebsiteOptions) {
   const publicUrl = escapeHtml(options.publicUrl);
@@ -398,7 +399,10 @@ export function websiteHtml(options: WebsiteOptions) {
       <div class="shell steps">
         <div class="terminal">
           <div class="terminal-bar"><span class="dots"><i></i><i></i><i></i></span><button class="copy" type="button" data-copy="seller-code">Copy</button></div>
-          <pre id="seller-code"><span class="code-muted"># create a seller account</span>
+          <pre id="seller-code"><span class="code-muted"># install the public CLI</span>
+<span class="code-purple">npm</span> install --global @loopfare/cli@latest
+
+<span class="code-muted"># create a seller account</span>
 <span class="code-purple">loopfare</span> set-api ${publicUrl}
 <span class="code-purple">loopfare</span> signup --email you@example.com --json
 
@@ -412,7 +416,7 @@ export function websiteHtml(options: WebsiteOptions) {
   --project PROJECT_ID \\
   --origin https://api.example.com \\
   --path "/v1/*" \\
-  --price "$0.001" --json
+  --price '$0.001' --json
 
 <span class="code-green"># agents can now call /p/weather/v1/...</span></pre>
         </div>
@@ -420,7 +424,7 @@ export function websiteHtml(options: WebsiteOptions) {
           <div class="section-label">CLI-first quickstart</div>
           <h2 class="section-heading">From origin to paid endpoint.</h2>
           <p style="color:rgba(255,255,255,.6);max-width:540px">The CLI is built for developers and autonomous agents. Every command supports structured JSON output, so setup can be scripted and audited.</p>
-          <a class="button button-primary" href="${githubUrl}#readme" style="margin-top:18px">Open the full guide <span aria-hidden="true">↗</span></a>
+          <a class="button button-primary" href="/docs/quickstart" style="margin-top:18px">Open the full guide <span aria-hidden="true">→</span></a>
         </div>
       </div>
     </section>
@@ -491,7 +495,7 @@ export function websiteHtml(options: WebsiteOptions) {
         </div>
         <div><h3>Product</h3><div class="footer-links"><a href="#product">Features</a><a href="#how">How it works</a><a href="${demoHref}">Demo</a></div></div>
         <div><h3>Developers</h3><div class="footer-links"><a href="/docs/quickstart">Quickstart</a><a href="/docs/api-reference">API reference</a><a href="/docs/cli-reference">CLI reference</a><a href="/skill.md">Agent skill</a></div></div>
-        <div><h3>Open source</h3><div class="footer-links"><a href="${githubUrl}">GitHub</a><a href="${githubUrl}/issues">Issues</a><a href="${githubUrl}/blob/main/LICENSE">MIT license</a></div></div>
+        <div><h3>Open source</h3><div class="footer-links"><a href="${githubUrl}">GitHub</a><a href="${npmUrl}">npm package</a><a href="${githubUrl}/issues">Issues</a><a href="${githubUrl}/blob/main/LICENSE">MIT license</a></div></div>
       </div>
       <div class="footer-bottom">
         <span>© ${new Date().getUTCFullYear()} Loopfare. Built for an agentic web.</span>

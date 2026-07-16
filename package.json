@@ -1,6 +1,6 @@
 {
   "name": "loopfare",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "private": true,
   "description": "Charge AI agents per request — x402 paywall SaaS for Base",
   "workspaces": [

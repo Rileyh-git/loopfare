@@ -15,7 +15,7 @@ loopfare set-api https://YOUR_RAILWAY_URL
 
 loopfare signup --email you@example.com --json
 loopfare projects create --name "My API" --slug my-api --pay-to 0xYOUR_WALLET --json
-loopfare protect --project PROJECT_ID --origin https://api.example.com --path "/*" --price "$0.001" --json
+loopfare protect --project PROJECT_ID --origin https://api.example.com --path "/*" --price '$0.001' --json
 ```
 
 Agents then call: `https://YOUR_RAILWAY_URL/p/my-api/...`

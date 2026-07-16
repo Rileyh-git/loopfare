@@ -11,10 +11,11 @@ You will run the Loopfare website, API, and CLI; create a seller project; put an
 - Node.js 22 or newer
 - npm 10 or newer
 - Git
+- curl
 - An HTTPS API origin you control for public testing
-- For real testnet payments: Base Sepolia ETH and USDC in a disposable buyer wallet
+- For real testnet payments: Base Sepolia USDC in a disposable buyer wallet
 
-The CLI package is ready for publication but is not on npm during this beta. Install it from the public repository with `npm link` as shown below.
+Install the public CLI from npm in a second terminal after starting the local service.
 
 ## 1. Install and start Loopfare
 
@@ -33,17 +34,18 @@ Open `http://localhost:4021`. The readiness endpoint should answer with `{"ok":t
 curl --fail http://localhost:4021/health/ready
 ```
 
-## 2. Make the CLI available
+## 2. Install the CLI
 
-In a second terminal, from the repository root:
+In a second terminal:
 
 ```bash
-npm run build -w @loopfare/cli
-npm link -w @loopfare/cli
+npm install --global @loopfare/cli@latest
 loopfare --version
 loopfare doctor
 loopfare set-api http://localhost:4021
 ```
+
+Contributors changing the CLI can instead build the checkout and run `npm link -w @loopfare/cli` from the repository root.
 
 Every command supports the top-level `--json` option. Put it before the subcommand, for example `loopfare --json projects list`.
 
@@ -65,13 +67,13 @@ loopfare whoami --json
 
 ## 4. Create a seller project
 
-Use an EVM address that you control. On Base Sepolia it will receive test USDC.
+For this no-funds local simulation, use the valid placeholder address below. It is not controlled by you; never send assets to it. For a real Base Sepolia test, replace it with an EVM address you control.
 
 ```bash
 loopfare projects create \
   --name "Weather API" \
   --slug weather \
-  --pay-to 0xYourReceivingAddress \
+  --pay-to 0x0000000000000000000000000000000000000001 \
   --json
 ```
 
@@ -84,18 +86,18 @@ For a public deployment, `--origin` must be an HTTP or HTTPS origin that resolve
 ```bash
 loopfare protect \
   --project PROJECT_ID \
-  --origin https://api.example.com \
-  --path "/v1/*" \
-  --methods GET,POST \
+  --origin https://httpbin.org \
+  --path "/*" \
+  --methods GET \
   --price '$0.001' \
-  --description "Paid weather data" \
+  --description "Paid echo endpoint" \
   --json
 ```
 
 The paid URL has this shape:
 
 ```text
-http://localhost:4021/p/weather/v1/forecast
+http://localhost:4021/p/weather/get
 ```
 
 Loopfare preserves the query string, does not follow origin redirects, strips credentials and payment headers, and returns the origin response only after a real payment settles.
@@ -107,7 +109,7 @@ The example `.env` enables local development payments. Create a disposable walle
 ```bash
 loopfare wallet create --json
 loopfare budget set --daily 5 --json
-loopfare call http://localhost:4021/p/weather/v1/forecast --dev --json
+loopfare call http://localhost:4021/p/weather/get --dev --json
 ```
 
 `--dev` sends `LOOPFARE-DEV-PAYMENT: ok`. Production refuses to start when development payments are enabled.
@@ -119,18 +121,20 @@ If your test origin runs on localhost, keep `ALLOW_PRIVATE_ORIGINS=true` only in
 Call the route without `--dev` or a payment signature:
 
 ```bash
-curl -i http://localhost:4021/p/weather/v1/forecast
+curl -i http://localhost:4021/p/weather/get
 ```
 
 The response is HTTP `402` and includes the x402 v2 `PAYMENT-REQUIRED` header. A compatible client signs the exact-payment payload and retries with `PAYMENT-SIGNATURE`.
 
 ## 8. Make a real Base Sepolia payment
 
-Fund the buyer wallet with Base Sepolia ETH for gas and Base Sepolia USDC. Never fund a generated test wallet with mainnet assets.
+This is a separate post-deploy scenario: deploy Loopfare, point the CLI at its public HTTPS domain, and recreate the seller account, project, and route there with a receiving address you control. Local SQLite state does not transfer to the deployment.
+
+Fund the buyer wallet with Base Sepolia USDC from the [Coinbase developer faucet](https://portal.cdp.coinbase.com/products/faucet). The facilitator submits settlement, so the buyer does not need ETH for Loopfare's exact USDC payment flow. Never fund a generated test wallet with mainnet assets.
 
 ```bash
 loopfare budget set --daily 1 --json
-loopfare call https://YOUR_LOOPFARE_DOMAIN/p/weather/v1/forecast --json
+loopfare call https://YOUR_LOOPFARE_DOMAIN/p/weather/get --json
 ```
 
 The CLI accepts only official USDC on Base Sepolia or Base. It selects the lowest supported requirement within the remaining local budget, signs, retries, and reports settlement metadata. A successful response contains `PAYMENT-RESPONSE`.

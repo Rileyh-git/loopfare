@@ -4,21 +4,17 @@ Loopfare's command-line client lets API sellers create x402-protected routes and
 
 Loopfare is currently a Base Sepolia public beta. Do not fund a test wallet with mainnet assets.
 
-## Install from the repository
+## Install
 
-Until the first npm release is published, install from the public source repository:
+Node.js 22 or newer is required. Install the current public release from npm:
 
 ```bash
-git clone https://github.com/Rileyh-git/loopfare.git
-cd loopfare
-# Optional when nvm is installed: nvm use
-npm ci
-npm run build -w @loopfare/cli
-npm link -w @loopfare/cli
+npm install --global @loopfare/cli@latest
+loopfare --version
 loopfare doctor
 ```
 
-Node.js 22 or newer is required. The CLI defaults to the hosted Base Sepolia service at `https://api-production-dd0a0.up.railway.app`; use `loopfare set-api URL` for a local or self-hosted instance.
+Run the same npm command to upgrade an existing installation. For a no-install connectivity check, run `npx --yes @loopfare/cli@latest doctor`. The CLI defaults to the hosted Base Sepolia service at `https://api-production-dd0a0.up.railway.app`; use `loopfare set-api URL` for a local or self-hosted instance.
 
 ## Safe first test
 
