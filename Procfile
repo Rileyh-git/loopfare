@@ -1,1 +1,1 @@
-web: npm run start -w @loopfare/api
+web: node packages/api/dist/index.js
