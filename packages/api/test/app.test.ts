@@ -14,6 +14,7 @@ process.env.PUBLIC_URL = "http://localhost:4021";
 const { app } = await import("../src/app.js");
 const db = await import("../src/db.js");
 const originSecurity = await import("../src/origin-security.js");
+const docsSite = await import("../src/docs-site.js");
 
 after(() => {
   db.closeDatabase();
@@ -40,6 +41,29 @@ test("serves the marketing site with security headers", async () => {
   assert.match(response.headers.get("content-type") ?? "", /text\/html/);
   assert.match(response.headers.get("content-security-policy") ?? "", /default-src 'self'/);
   assert.match(await response.text(), /Make every API call pay its fare/);
+});
+
+test("serves every public manual as accessible HTML and raw Markdown", async () => {
+  const home = await app.request("/docs");
+  assert.equal(home.status, 200);
+  assert.match(await home.text(), /Loopfare documentation/);
+
+  for (const doc of docsSite.publicDocs) {
+    const [html, markdown] = await Promise.all([
+      app.request(`/docs/${doc.slug}`),
+      app.request(`/docs/${doc.slug}.md`),
+    ]);
+    assert.equal(html.status, 200, `${doc.slug} HTML`);
+    assert.match(html.headers.get("content-type") ?? "", /text\/html/);
+    assert.match(await html.text(), new RegExp(doc.title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"));
+    assert.equal(markdown.status, 200, `${doc.slug} Markdown`);
+    assert.match(markdown.headers.get("content-type") ?? "", /text\/markdown/);
+    assert.match(await markdown.text(), /^# /);
+  }
+
+  const missing = await app.request("/docs/does-not-exist");
+  assert.equal(missing.status, 404);
+  assert.equal((await json(missing)).error, "doc_not_found");
 });
 
 test("reports liveness and database readiness", async () => {
@@ -77,6 +101,15 @@ test("stores hashed API keys and invalidates an old key on rotation", async () =
   });
   assert.equal(oldKey.status, 401);
   assert.equal(newKey.status, 200);
+});
+
+test("returns a consistent JSON envelope for authentication errors", async () => {
+  const response = await app.request("/v1/auth/me");
+  const body = await json(response);
+  assert.equal(response.status, 401);
+  assert.equal(body.error, "unauthorized");
+  assert.match(body.message, /Bearer API key/);
+  assert.equal(typeof body.requestId, "string");
 });
 
 test("scopes global payment history to the authenticated account", async () => {
@@ -152,6 +185,16 @@ test("protects buyer budgets with a separate secret token", async () => {
   assert.equal(denied.status, 403);
   assert.equal(allowed.status, 200);
   assert.equal((await json(allowed)).budget.dailyLimitUsd, 5);
+});
+
+test("atomically reserves and refunds compatible buyer budget spend", () => {
+  const wallet = "0x4444444444444444444444444444444444444444";
+  const token = "lb_reservation_test_token_abcdefghijklmnopqrstuvwxyz";
+  assert.ok(db.setBudget(wallet, 5, token));
+  assert.equal(db.trySpendBudget(wallet, token, 4).ok, true);
+  assert.equal(db.trySpendBudget(wallet, token, 2).ok, false);
+  assert.equal(db.refundBudgetSpend(wallet, token, 4), true);
+  assert.equal(db.trySpendBudget(wallet, token, 2).ok, true);
 });
 
 test("supports local dev payments without contacting a facilitator", async () => {

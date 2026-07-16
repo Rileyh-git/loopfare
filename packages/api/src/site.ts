@@ -269,7 +269,7 @@ export function websiteHtml(options: WebsiteOptions) {
       <div class="nav-links">
         <a href="#product">Product</a>
         <a href="#how">How it works</a>
-        <a href="#quickstart">Developers</a>
+        <a href="/docs">Documentation</a>
         <a href="#faq">FAQ</a>
       </div>
       <div class="nav-actions">
@@ -294,7 +294,7 @@ export function websiteHtml(options: WebsiteOptions) {
       <div class="canvas-wrap" aria-label="Loopfare payment flow preview">
         <div class="canvas">
           <div class="canvas-bar">
-            <div class="canvas-title"><span class="mark-mini" aria-hidden="true"></span> Production flow</div>
+            <div class="canvas-title"><span class="mark-mini" aria-hidden="true"></span> x402 request flow</div>
             <div class="canvas-status"><span class="pulse" aria-hidden="true"></span> Ready on ${networkLabel}</div>
           </div>
           <div class="canvas-grid">
@@ -464,7 +464,7 @@ export function websiteHtml(options: WebsiteOptions) {
           <details><summary>Can I use my existing API?</summary><p>Yes. Loopfare is a reverse proxy: configure an HTTPS origin, choose protected methods and paths, and send paid requests through the generated /p/&lt;project&gt;/... URL.</p></details>
           <details><summary>Is this mainnet?</summary><p>This deployment currently advertises ${networkLabel}. Base Sepolia is for end-to-end testing with test USDC; switch to Base and a mainnet-capable facilitator only after operational and legal review.</p></details>
           <details><summary>How do agent budgets work?</summary><p>The CLI can attach a token-protected daily budget to its wallet. It is a safety rail for compatible clients, not a substitute for wallet policy or limiting the funds available to an agent.</p></details>
-          <details><summary>Where is the API documentation?</summary><p>Start with the <a href="/skill.md" style="text-decoration:underline">agent skill</a>, inspect <a href="/api" style="text-decoration:underline">API metadata</a>, or read the complete README and source on GitHub.</p></details>
+          <details><summary>Where is the API documentation?</summary><p>Open the <a href="/docs" style="text-decoration:underline">documentation center</a> for the quickstart, seller and buyer manuals, full API and CLI references, architecture, security, and operations guides.</p></details>
         </div>
       </div>
     </section>
@@ -476,7 +476,7 @@ export function websiteHtml(options: WebsiteOptions) {
         <p>Start on testnet, prove the flow, and let software pay software.</p>
         <div class="hero-actions">
           <a class="button button-primary" href="#quickstart">Protect an API <span aria-hidden="true">→</span></a>
-          <a class="button button-secondary" href="${demoHref}">${demoLabel}</a>
+          <a class="button button-secondary" href="/docs">Read the documentation</a>
         </div>
       </div>
     </section>
@@ -490,7 +490,7 @@ export function websiteHtml(options: WebsiteOptions) {
           <p class="footer-copy">Usage-based payments for APIs and AI agents, powered by x402 and Base.</p>
         </div>
         <div><h3>Product</h3><div class="footer-links"><a href="#product">Features</a><a href="#how">How it works</a><a href="${demoHref}">Demo</a></div></div>
-        <div><h3>Developers</h3><div class="footer-links"><a href="#quickstart">Quickstart</a><a href="/skill.md">Agent skill</a><a href="/api">API metadata</a></div></div>
+        <div><h3>Developers</h3><div class="footer-links"><a href="/docs/quickstart">Quickstart</a><a href="/docs/api-reference">API reference</a><a href="/docs/cli-reference">CLI reference</a><a href="/skill.md">Agent skill</a></div></div>
         <div><h3>Open source</h3><div class="footer-links"><a href="${githubUrl}">GitHub</a><a href="${githubUrl}/issues">Issues</a><a href="${githubUrl}/blob/main/LICENSE">MIT license</a></div></div>
       </div>
       <div class="footer-bottom">

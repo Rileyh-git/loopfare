@@ -508,6 +508,23 @@ export function trySpendBudget(
   return spend();
 }
 
+/** Release a same-day reservation when the origin or settlement fails. */
+export function refundBudgetSpend(
+  walletAddress: string,
+  accessToken: string,
+  amountUsd: number,
+): boolean {
+  const budget = getBudgetForToken(walletAddress, accessToken);
+  if (!budget || budget.spent_day !== today()) return false;
+  return (
+    db.prepare(
+      `UPDATE buyer_budgets
+       SET spent_today_usd = MAX(0, spent_today_usd - ?), updated_at = ?
+       WHERE id = ? AND access_token_hash = ? AND spent_day = ?`,
+    ).run(amountUsd, now(), budget.id, hashSecret(accessToken), today()).changes > 0
+  );
+}
+
 function getBudgetByAddress(walletAddress: string): BuyerBudget | undefined {
   return db
     .prepare(`SELECT * FROM buyer_budgets WHERE wallet_address = ?`)

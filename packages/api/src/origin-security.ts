@@ -72,6 +72,7 @@ export async function assertSafeOrigin(input: string): Promise<string> {
  * lookup closes the DNS-rebinding window between validation and connect.
  */
 export const safeProxyDispatcher = new Agent({
+  maxResponseSize: config.maxProxyResponseBytes,
   connect: {
     lookup(hostname, options, callback) {
       lookupCallback(
