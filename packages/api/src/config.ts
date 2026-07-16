@@ -63,6 +63,12 @@ const envSchema = z.object({
     .min(1_024)
     .max(10 * 1024 * 1024)
     .default(1024 * 1024),
+  MAX_PROXY_RESPONSE_BYTES: z.coerce
+    .number()
+    .int()
+    .min(64 * 1024)
+    .max(100 * 1024 * 1024)
+    .default(10 * 1024 * 1024),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -113,6 +119,7 @@ export const config = {
   corsOrigins: configuredOrigins.length > 0 ? configuredOrigins : [new URL(publicUrl).origin],
   proxyTimeoutMs: env.PROXY_TIMEOUT_MS,
   maxRequestBodyBytes: env.MAX_REQUEST_BODY_BYTES,
+  maxProxyResponseBytes: env.MAX_PROXY_RESPONSE_BYTES,
 } as const;
 
 mkdirSync(dirname(config.databasePath), { recursive: true });

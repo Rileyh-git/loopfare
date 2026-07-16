@@ -13,6 +13,7 @@ The same service includes:
 | Paid proxy | Dynamic x402 gates in front of seller origins |
 | CLI | Seller administration and budget-aware buyer payments |
 | Agent skill | Machine-readable instructions at `/skill.md` |
+| Documentation center | Hosted guides, manuals, API/CLI references, and raw Markdown at `/docs` |
 
 ## Architecture
 
@@ -106,6 +107,7 @@ Public endpoints:
 
 - `GET /` — marketing website
 - `GET /api` — service and endpoint metadata
+- `GET /docs`, `/docs/:page`, `/docs/:page.md` — public documentation
 - `GET /health`, `/health/live`, `/health/ready` — health checks
 - `GET /skill.md` — agent instructions
 - `POST /v1/auth/signup` — seller signup
@@ -129,13 +131,28 @@ Seller endpoints require `Authorization: Bearer lf_…`:
 - Seller API keys are shown once and stored as SHA-256 hashes.
 - Arbitrary seller origins are checked at configuration time and immediately before every proxy request. Private, loopback, link-local, metadata, multicast, and reserved destinations are blocked in production.
 - Redirects from seller origins are not followed.
-- Authorization, cookies, payment signatures, budget tokens, hop-by-hop headers, and internal Loopfare headers are not forwarded to seller origins.
-- Request bodies are capped, proxy calls time out, security headers are applied, CORS is allowlisted, and API/signup rate limits are enabled.
+- Authorization, cookies, payment signatures, budget tokens, hop-by-hop headers, and internal Loopfare headers are not forwarded to seller origins; origin cookies are not returned to buyers.
+- Proxy request and response sizes are capped, upstream calls time out, security headers are applied, CORS is allowlisted, and management/proxy rate limits are enabled.
+- Real payments settle only after the seller origin succeeds. Successful settlement headers and transaction hashes are preserved and recorded.
 - Payment history is scoped to the authenticated seller account.
 - Buyer budgets use a separate secret token. They are a compatible-client safety rail, not a wallet-level policy.
 - Production refuses to boot with dev payments enabled.
 
 See [SECURITY.md](./SECURITY.md) for reporting and incident response.
+
+## Documentation
+
+The hosted documentation center is available at `/docs`. Every guide also has a raw Markdown form at `/docs/<slug>.md` for agents, search indexing, and offline use.
+
+| Start here | Product use | Build and operate |
+| --- | --- | --- |
+| [Quickstart](./docs/QUICKSTART.md) | [Seller manual](./docs/SELLER_MANUAL.md) | [API reference](./docs/API_REFERENCE.md) |
+| [Core concepts](./docs/CONCEPTS.md) | [Buyer manual](./docs/BUYER_MANUAL.md) | [Architecture](./docs/ARCHITECTURE.md) |
+| [FAQ](./docs/FAQ.md) | [CLI reference](./docs/CLI_REFERENCE.md) | [Self-hosting](./docs/SELF_HOSTING.md) |
+| [Glossary](./docs/GLOSSARY.md) | [Troubleshooting](./docs/TROUBLESHOOTING.md) | [Operations](./docs/OPERATIONS_MANUAL.md) |
+| [Agent integration](./docs/AGENT_INTEGRATION.md) | [Error reference](./docs/ERROR_REFERENCE.md) | [Security model](./docs/SECURITY_MODEL.md) |
+
+The [production checklist](./docs/PRODUCTION.md) and [contributor guide](./docs/CONTRIBUTING.md) complete the public manual set.
 
 ## Verification
 
@@ -177,7 +194,7 @@ Keep the public beta on Base Sepolia until the mainnet gate in the production ru
 loopfare/
 ├── packages/api/       Hono API, website, paid proxy, SQLite
 ├── packages/cli/       Seller and buyer CLI
-├── docs/PRODUCTION.md  Railway release and operations runbook
+├── docs/                Public guides, references, and operator manuals
 ├── SECURITY.md
 ├── railway.toml
 └── nixpacks.toml

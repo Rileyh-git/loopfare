@@ -10,6 +10,9 @@ import {
   currentDailySpend,
   ensureBudgetToken,
   loadConfig,
+  reconcileDailySpend,
+  releaseDailySpend,
+  reserveDailySpend,
   saveConfig,
 } from "./config.js";
 import { fail, print } from "./output.js";
@@ -28,10 +31,10 @@ function jsonFlag(): boolean {
 
 function requireWalletAddress(): string {
   const cfg = loadConfig();
-  if (cfg.address) return cfg.address;
   if (cfg.privateKey) {
     return privateKeyToAccount(cfg.privateKey as `0x${string}`).address;
   }
+  if (cfg.address) return cfg.address;
   throw new Error("No wallet. Run: loopfare wallet create");
 }
 
@@ -376,7 +379,14 @@ wallet
   .action((opts: { showPrivateKey?: boolean }) => {
     const pk = generatePrivateKey();
     const account = privateKeyToAccount(pk);
-    saveConfig({ privateKey: pk, address: account.address });
+    saveConfig({
+      privateKey: pk,
+      address: account.address,
+      dailyBudgetUsd: undefined,
+      budgetToken: undefined,
+      spentTodayUsd: undefined,
+      spentDay: undefined,
+    });
     print(
       {
         address: account.address,
@@ -412,7 +422,14 @@ wallet
       ? opts.privateKey
       : `0x${opts.privateKey}`;
     const account = privateKeyToAccount(pk as `0x${string}`);
-    saveConfig({ privateKey: pk, address: account.address });
+    saveConfig({
+      privateKey: pk,
+      address: account.address,
+      dailyBudgetUsd: undefined,
+      budgetToken: undefined,
+      spentTodayUsd: undefined,
+      spentDay: undefined,
+    });
     print({ address: account.address, storedAt: configPath() }, jsonFlag());
   });
 
@@ -513,6 +530,12 @@ program
           if (idx === -1) continue;
           headers[h.slice(0, idx).trim()] = h.slice(idx + 1).trim();
         }
+        if (
+          opts.data &&
+          !Object.keys(headers).some((name) => name.toLowerCase() === "content-type")
+        ) {
+          headers["Content-Type"] = "application/json";
+        }
 
         if (opts.dev || process.env.LOOPFARE_DEV_PAYMENT === "1") {
           headers["LOOPFARE-DEV-PAYMENT"] = "ok";
@@ -524,10 +547,7 @@ program
           if (cfg.budgetToken) headers["X-Loopfare-Budget-Token"] = cfg.budgetToken;
           const res = await fetch(url, {
             method,
-            headers: {
-              ...headers,
-              ...(opts.data ? { "Content-Type": "application/json" } : {}),
-            },
+            headers,
             body: opts.data,
           });
           const text = await res.text();
@@ -564,6 +584,7 @@ program
         }
         const remainingUsd = Math.max(0, (cfg.dailyBudgetUsd ?? 0) - spend.spentTodayUsd);
         let selectedAmountUsd = 0;
+        let reservedAmountUsd = 0;
 
         const client = new x402Client();
         client.register("eip155:8453", new ExactEvmScheme(signer));
@@ -588,37 +609,44 @@ program
             );
           }
           selectedAmountUsd = affordable[0]!.amountUsd;
+          if (enforceBudget && reservedAmountUsd === 0) {
+            reserveDailySpend(selectedAmountUsd, cfg.dailyBudgetUsd!);
+            reservedAmountUsd = selectedAmountUsd;
+          }
           return affordable.map((entry) => entry.requirement);
         });
         const fetchWithPayment = wrapFetchWithPayment(fetch, client);
         const httpClient = new x402HTTPClient(client);
 
-        const response = await fetchWithPayment(url, {
-          method,
-          headers: {
-            ...headers,
-            ...(opts.data ? { "Content-Type": "application/json" } : {}),
-          },
-          body: opts.data,
-        });
-
-        const result = await httpClient.processResponse(response);
+        let response: Response;
+        let result: Awaited<ReturnType<typeof httpClient.processResponse>>;
         let chargedUsd = 0;
-        if (enforceBudget && result.paymentStatus === "settled") {
-          const settledAtomic =
-            result.header && "success" in result.header && result.header.amount
-              ? result.header.amount
-              : undefined;
-          chargedUsd = settledAtomic
-            ? atomicUsdcToUsd(settledAtomic)
-            : selectedAmountUsd;
-          if (chargedUsd > 0) {
-            saveConfig({
-              spentDay: spend.spentDay,
-              spentTodayUsd: Number((spend.spentTodayUsd + chargedUsd).toFixed(6)),
-            });
+        let keepReservation = false;
+        try {
+          response = await fetchWithPayment(url, {
+            method,
+            headers,
+            body: opts.data,
+          });
+
+          result = await httpClient.processResponse(response);
+          if (enforceBudget && result.paymentStatus === "settled") {
+            const settledAtomic =
+              result.header && "success" in result.header && result.header.amount
+                ? result.header.amount
+                : undefined;
+            chargedUsd = settledAtomic
+              ? atomicUsdcToUsd(settledAtomic)
+              : selectedAmountUsd;
+            reconcileDailySpend(reservedAmountUsd, chargedUsd);
+            keepReservation = true;
+          }
+        } finally {
+          if (enforceBudget && reservedAmountUsd > 0 && !keepReservation) {
+            releaseDailySpend(reservedAmountUsd);
           }
         }
+        const updatedSpend = currentDailySpend(loadConfig());
         print(
           {
             status: response.status,
@@ -629,9 +657,7 @@ program
             budget: enforceBudget
               ? {
                   dailyLimitUsd: cfg.dailyBudgetUsd,
-                  spentTodayUsd: Number(
-                    (spend.spentTodayUsd + chargedUsd).toFixed(6),
-                  ),
+                  spentTodayUsd: updatedSpend.spentTodayUsd,
                 }
               : { enforced: false },
           },

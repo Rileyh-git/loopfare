@@ -9,6 +9,11 @@ import { fetch as proxyFetch } from "undici";
 import { z } from "zod";
 import { config } from "./config.js";
 import {
+  documentationHtml,
+  publicDocMarkdown,
+  publicDocs,
+} from "./docs-site.js";
+import {
   canSpendBudget,
   createAccount,
   createProject,
@@ -30,6 +35,7 @@ import {
   normalizePrice,
   priceToUsd,
   recordPayment,
+  refundBudgetSpend,
   rotateApiKey,
   setBudget,
   trySpendBudget,
@@ -125,7 +131,16 @@ app.use(
     onError: (c) => c.json({ error: "payload_too_large" }, 413),
   }),
 );
+app.use(
+  "/p/*",
+  bodyLimit({
+    maxSize: config.maxRequestBodyBytes,
+    onError: (c) => c.json({ error: "payload_too_large" }, 413),
+  }),
+);
 app.use("/v1/*", rateLimit({ limit: 300, windowMs: 60_000 }));
+app.use("/p/*", rateLimit({ limit: 600, windowMs: 60_000 }));
+app.use("/demo/*", rateLimit({ limit: 120, windowMs: 60_000 }));
 
 // ── Website, metadata, and health ────────────────────────────────
 
@@ -144,18 +159,39 @@ app.get("/favicon.svg", (c) => {
   c.header("Cache-Control", "public, max-age=86400");
   return c.body(faviconSvg(), 200, { "Content-Type": "image/svg+xml; charset=utf-8" });
 });
+app.get("/favicon.ico", (c) => c.redirect("/favicon.svg", 301));
 
 app.get("/robots.txt", (c) =>
   c.text(`User-agent: *\nAllow: /\nDisallow: /v1/\nSitemap: ${config.publicUrl}/sitemap.xml\n`),
 );
 
-app.get("/sitemap.xml", (c) =>
-  c.body(
-    `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>${escapeXml(config.publicUrl)}</loc></url></urlset>`,
+app.get("/sitemap.xml", (c) => {
+  const paths = ["", "/docs", ...publicDocs.map((doc) => `/docs/${doc.slug}`)];
+  return c.body(
+    `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${paths.map((path) => `<url><loc>${escapeXml(`${config.publicUrl}${path}`)}</loc></url>`).join("")}</urlset>`,
     200,
     { "Content-Type": "application/xml; charset=utf-8" },
-  ),
-);
+  );
+});
+
+app.get("/docs", (c) => {
+  c.header("Cache-Control", "public, max-age=300, stale-while-revalidate=3600");
+  return c.html(documentationHtml({ publicUrl: config.publicUrl })!);
+});
+
+app.get("/docs/:document", (c) => {
+  const document = c.req.param("document");
+  const wantsMarkdown = document.endsWith(".md");
+  const slug = wantsMarkdown ? document.slice(0, -3) : document;
+  const content = wantsMarkdown
+    ? publicDocMarkdown(slug)
+    : documentationHtml({ publicUrl: config.publicUrl, slug });
+  if (!content) return c.json({ error: "doc_not_found", message: "Documentation page not found" }, 404);
+  c.header("Cache-Control", "public, max-age=300, stale-while-revalidate=3600");
+  return wantsMarkdown
+    ? c.text(content, 200, { "Content-Type": "text/markdown; charset=utf-8" })
+    : c.html(content);
+});
 
 app.get("/api", (c) =>
   c.json({
@@ -169,6 +205,8 @@ app.get("/api", (c) =>
     demoEnabled: config.demoEnabled,
     docs: {
       website: "GET /",
+      documentation: "GET /docs",
+      documentationMarkdown: "GET /docs/:page.md",
       health: "GET /health",
       signup: "POST /v1/auth/signup",
       projects: "GET|POST /v1/projects",
@@ -218,6 +256,8 @@ loopfare call ${config.publicUrl}/demo/v1/fortune --json
 \`\`\`
 
 The paid endpoint responds with an x402 v2 PAYMENT-REQUIRED challenge. Compatible clients retry with PAYMENT-SIGNATURE.
+
+Complete manuals and references: ${config.publicUrl}/docs
 
 Dev mode is local-only: when \`LOOPFARE_DEV_MODE=true\`, send \`LOOPFARE-DEV-PAYMENT: ok\`.
 `;
@@ -473,7 +513,19 @@ app.use("/demo/v1/fortune", async (c, next) => {
     return next();
   }
   if (!config.devMode || c.req.header("PAYMENT-SIGNATURE")) {
-    return buildDemoPaymentMiddleware()(c, next);
+    const result = await buildDemoPaymentMiddleware()(c, next);
+    const response = result instanceof Response ? result : c.res;
+    if (response.status < 400 && response.headers.has("PAYMENT-RESPONSE")) {
+      recordPayment({
+        method: c.req.method,
+        path: c.req.path,
+        price: config.demoPrice,
+        status: "settled",
+        txHash: settlementTransactionHash(response.headers.get("PAYMENT-RESPONSE")),
+        buyerHint: c.req.header("X-Loopfare-Wallet") ?? null,
+      });
+    }
+    return result;
   }
   return c.json(
     {
@@ -559,17 +611,33 @@ async function handlePaidProxy(c: Context<AuthEnv>) {
     config.devMode &&
     isDevPaymentAuthorized(c.req.header("LOOPFARE-DEV-PAYMENT"), route.price)
   ) {
-    if (wallet && budgetToken) trySpendBudget(wallet, budgetToken, amountUsd);
-    recordPayment({
-      routeId: route.id,
-      projectId: route.project_id,
-      method: c.req.method,
-      path: c.req.path,
-      price: route.price,
-      status: "dev_settled",
-      buyerHint: wallet ?? "dev-mode",
-    });
-    return proxyToOrigin(c, safeOrigin, rest);
+    let budgetReserved = false;
+    if (wallet && budgetToken) {
+      const reservation = trySpendBudget(wallet, budgetToken, amountUsd);
+      if (!reservation.ok) return budgetFailureResponse(c, reservation);
+      budgetReserved = true;
+    }
+    let response: Response;
+    try {
+      response = await proxyToOrigin(c, safeOrigin, rest);
+    } catch (error) {
+      if (budgetReserved) refundBudgetSpend(wallet!, budgetToken!, amountUsd);
+      throw error;
+    }
+    if (response.status < 400) {
+      recordPayment({
+        routeId: route.id,
+        projectId: route.project_id,
+        method: c.req.method,
+        path: c.req.path,
+        price: route.price,
+        status: "dev_settled",
+        buyerHint: wallet ?? "dev-mode",
+      });
+    } else if (budgetReserved) {
+      refundBudgetSpend(wallet!, budgetToken!, amountUsd);
+    }
+    return response;
   }
 
   let paid = false;
@@ -580,19 +648,43 @@ async function handlePaidProxy(c: Context<AuthEnv>) {
     payTo: route.pay_to,
     description: route.description || `Loopfare protected: ${projectSlug}${rest}`,
   });
-  const gateResult = await gate(c, async () => {
-    paid = true;
-  });
+  let budgetReserved = false;
+  let gateResult: void | Response;
+  try {
+    gateResult = await gate(c, async () => {
+      paid = true;
+      if (wallet && budgetToken) {
+        const reservation = trySpendBudget(wallet, budgetToken, amountUsd);
+        if (!reservation.ok) {
+          c.res = budgetFailureResponse(c, reservation);
+          return;
+        }
+        budgetReserved = true;
+      }
+      c.res = await proxyToOrigin(c, safeOrigin, rest);
+    });
+  } catch (error) {
+    if (budgetReserved) refundBudgetSpend(wallet!, budgetToken!, amountUsd);
+    throw error;
+  }
 
   if (!paid) {
     if (gateResult instanceof Response) return gateResult;
+    if (c.res) return c.res;
     return c.json(
       { error: "payment_required", price: route.price, network: config.network, payTo: route.pay_to },
       402,
     );
   }
 
-  if (wallet && budgetToken) trySpendBudget(wallet, budgetToken, amountUsd);
+  // paymentMiddleware settles only after the upstream response succeeds, then
+  // adds PAYMENT-RESPONSE to that same response. Never record a payment merely
+  // because verification reached the origin handler.
+  const settledResponse = c.res;
+  if (settledResponse.status >= 400 || !settledResponse.headers.has("PAYMENT-RESPONSE")) {
+    if (budgetReserved) refundBudgetSpend(wallet!, budgetToken!, amountUsd);
+    return settledResponse;
+  }
   recordPayment({
     routeId: route.id,
     projectId: route.project_id,
@@ -600,9 +692,10 @@ async function handlePaidProxy(c: Context<AuthEnv>) {
     path: c.req.path,
     price: route.price,
     status: "settled",
+    txHash: settlementTransactionHash(settledResponse.headers.get("PAYMENT-RESPONSE")),
     buyerHint: wallet ?? null,
   });
-  return proxyToOrigin(c, safeOrigin, rest);
+  return settledResponse;
 }
 
 // Register both forms because Hono's trailing wildcard does not match every
@@ -618,7 +711,17 @@ app.onError((error, c) => {
   if (error instanceof z.ZodError) {
     return c.json({ error: "validation_error", issues: error.issues }, 400);
   }
-  if (error instanceof HTTPException) return error.getResponse();
+  if (error instanceof HTTPException) {
+    const status = error.status as 400 | 401 | 403 | 404 | 405 | 409 | 413 | 422 | 429 | 500 | 502 | 503 | 504;
+    return c.json(
+      {
+        error: httpErrorCode(status),
+        message: error.message,
+        requestId: c.get("requestId"),
+      },
+      status,
+    );
+  }
   if (error instanceof SyntaxError) {
     return c.json({ error: "invalid_json", message: "Request body must be valid JSON" }, 400);
   }
@@ -673,7 +776,16 @@ async function proxyToOrigin(c: Context<AuthEnv>, originBase: string, path: stri
     init.body = await c.req.arrayBuffer();
   }
 
-  const upstream = await proxyFetch(target, init);
+  let upstream: Awaited<ReturnType<typeof proxyFetch>>;
+  try {
+    upstream = await proxyFetch(target, init);
+  } catch (error) {
+    const cause = error instanceof Error ? error : new Error(String(error));
+    if (cause.name === "AbortError" || cause.name === "TimeoutError") {
+      throw new HTTPException(504, { message: "The seller origin timed out", cause });
+    }
+    throw new HTTPException(502, { message: "The seller origin could not be reached", cause });
+  }
   const responseHeaders = new Headers(upstream.headers);
   for (const header of RESPONSE_HEADERS_TO_STRIP) responseHeaders.delete(header);
   responseHeaders.set("X-Loopfare-Proxied", "1");
@@ -712,6 +824,8 @@ const RESPONSE_HEADERS_TO_STRIP = [
   "content-length",
   "keep-alive",
   "proxy-authenticate",
+  "set-cookie",
+  "set-cookie2",
   "transfer-encoding",
   "upgrade",
 ];
@@ -780,6 +894,25 @@ function publicBudget(budget: {
   };
 }
 
+function budgetFailureResponse(
+  c: Context<AuthEnv>,
+  check: {
+    ok: boolean;
+    budget?: Parameters<typeof publicBudget>[0];
+    reason?: string;
+    unauthorized?: boolean;
+  },
+) {
+  return c.json(
+    {
+      error: check.unauthorized ? "invalid_budget_token" : "budget_exceeded",
+      message: check.reason,
+      budget: check.budget ? publicBudget(check.budget) : undefined,
+    },
+    check.unauthorized ? 403 : 402,
+  );
+}
+
 function parseLimit(value?: string) {
   if (!value) return 50;
   const parsed = Number(value);
@@ -822,6 +955,36 @@ function escapeXml(value: string) {
     };
     return entities[character]!;
   });
+}
+
+function httpErrorCode(status: number) {
+  const codes: Record<number, string> = {
+    400: "bad_request",
+    401: "unauthorized",
+    403: "forbidden",
+    404: "not_found",
+    405: "method_not_allowed",
+    409: "conflict",
+    413: "payload_too_large",
+    422: "unprocessable_entity",
+    429: "rate_limited",
+    502: "bad_gateway",
+    503: "service_unavailable",
+    504: "gateway_timeout",
+  };
+  return codes[status] ?? "internal_error";
+}
+
+function settlementTransactionHash(header: string | null): string | null {
+  if (!header) return null;
+  try {
+    const decoded = JSON.parse(Buffer.from(header, "base64url").toString("utf8")) as {
+      transaction?: unknown;
+    };
+    return typeof decoded.transaction === "string" ? decoded.transaction.slice(0, 200) : null;
+  } catch {
+    return null;
+  }
 }
 
 ensureBootstrapAccount();
