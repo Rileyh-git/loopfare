@@ -6,6 +6,7 @@ import { config } from "./config.js";
 import {
   createAccount,
   createProject,
+  canSpendBudget,
   createRoute,
   ensureBootstrapAccount,
   findRouteForRequest,
@@ -333,17 +334,17 @@ app.all("/p/:projectSlug/*", async (c) => {
     );
   }
 
-  // Optional buyer budget pre-check if wallet header present
+  // Optional buyer budget pre-check (do not charge until payment succeeds)
   const wallet = c.req.header("X-Loopfare-Wallet");
+  const amountUsd = priceToUsd(route.price);
   if (wallet) {
-    const amount = priceToUsd(route.price);
-    const spend = trySpendBudget(wallet, amount);
-    if (!spend.ok) {
+    const check = canSpendBudget(wallet, amountUsd);
+    if (!check.ok) {
       return c.json(
         {
           error: "budget_exceeded",
-          message: spend.reason,
-          budget: spend.budget,
+          message: check.reason,
+          budget: check.budget,
         },
         402,
       );
@@ -352,6 +353,7 @@ app.all("/p/:projectSlug/*", async (c) => {
 
   // Dev payment short-circuit
   if (config.devMode && isDevPaymentAuthorized(c.req.header("LOOPFARE-DEV-PAYMENT"), route.price)) {
+    if (wallet) trySpendBudget(wallet, amountUsd);
     recordPayment({
       routeId: route.id,
       projectId: route.project_id,
@@ -393,6 +395,7 @@ app.all("/p/:projectSlug/*", async (c) => {
     );
   }
 
+  if (wallet) trySpendBudget(wallet, amountUsd);
   recordPayment({
     routeId: route.id,
     projectId: route.project_id,

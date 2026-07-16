@@ -348,11 +348,10 @@ export function setBudget(walletAddress: string, dailyLimitUsd: number): BuyerBu
   return getOrCreateBudget(walletAddress, dailyLimitUsd);
 }
 
-export function trySpendBudget(walletAddress: string, amountUsd: number): {
-  ok: boolean;
-  budget: BuyerBudget;
-  reason?: string;
-} {
+export function canSpendBudget(
+  walletAddress: string,
+  amountUsd: number,
+): { ok: boolean; budget: BuyerBudget; reason?: string } {
   const budget = getOrCreateBudget(walletAddress);
   if (budget.spent_today_usd + amountUsd > budget.daily_limit_usd + 1e-9) {
     return {
@@ -361,9 +360,19 @@ export function trySpendBudget(walletAddress: string, amountUsd: number): {
       reason: `Daily budget exceeded (limit $${budget.daily_limit_usd}, spent $${budget.spent_today_usd.toFixed(4)}, need $${amountUsd})`,
     };
   }
+  return { ok: true, budget };
+}
+
+export function trySpendBudget(walletAddress: string, amountUsd: number): {
+  ok: boolean;
+  budget: BuyerBudget;
+  reason?: string;
+} {
+  const check = canSpendBudget(walletAddress, amountUsd);
+  if (!check.ok) return check;
   db.prepare(
     `UPDATE buyer_budgets SET spent_today_usd = spent_today_usd + ?, updated_at = ? WHERE id = ?`,
-  ).run(amountUsd, now(), budget.id);
+  ).run(amountUsd, now(), check.budget.id);
   return { ok: true, budget: getOrCreateBudget(walletAddress) };
 }
 
