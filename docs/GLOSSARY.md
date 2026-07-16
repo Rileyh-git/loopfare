@@ -91,4 +91,3 @@ The client-supplied `X-Loopfare-Wallet` header used to find a compatible budget.
 ## x402
 
 An open HTTP payment protocol built around status 402. It defines payment requirements, signed retries, verification, and settlement response metadata.
-

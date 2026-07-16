@@ -61,4 +61,3 @@ Open an issue with:
 - a suggested correction when possible.
 
 Every hosted page has a raw `.md` representation suitable for quoting a short section in an issue.
-

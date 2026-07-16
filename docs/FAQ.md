@@ -103,4 +103,3 @@ Yes, after replacing SQLite with shared durable storage and moving rate limits a
 ### Where are the manuals?
 
 Use `/docs` on the hosted service. Each page also has a Markdown representation for agents and offline reading.
-
