@@ -1,6 +1,6 @@
 {
   "name": "loopfare",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Charge AI agents per request — x402 paywall SaaS for Base",
   "workspaces": [
@@ -10,10 +10,13 @@
     "dev": "npm run dev -w @loopfare/api",
     "dev:api": "npm run dev -w @loopfare/api",
     "build": "npm run build -w @loopfare/api && npm run build -w @loopfare/cli",
+    "typecheck": "npm run typecheck -w @loopfare/api && npm run typecheck -w @loopfare/cli",
+    "test": "npm run test -w @loopfare/api",
+    "check": "npm run typecheck && npm test && npm run build",
     "start": "npm run start -w @loopfare/api",
     "cli": "npm run start -w @loopfare/cli --"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   }
 }

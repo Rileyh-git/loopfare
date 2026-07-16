@@ -5,7 +5,13 @@ import { wrapFetchWithPayment, x402HTTPClient } from "@x402/fetch";
 import { x402Client } from "@x402/core/client";
 import { ExactEvmScheme } from "@x402/evm/exact/client";
 import { api } from "./api.js";
-import { configPath, loadConfig, saveConfig } from "./config.js";
+import {
+  configPath,
+  currentDailySpend,
+  ensureBudgetToken,
+  loadConfig,
+  saveConfig,
+} from "./config.js";
 import { fail, print } from "./output.js";
 
 const program = new Command();
@@ -13,7 +19,7 @@ const program = new Command();
 program
   .name("loopfare")
   .description("Charge AI agents per request — x402 paywall CLI for Base")
-  .version("0.1.0")
+  .version("0.2.0")
   .option("--json", "Machine-readable JSON output", false);
 
 function jsonFlag(): boolean {
@@ -45,6 +51,8 @@ program
         address: cfg.address,
         hasPrivateKey: Boolean(cfg.privateKey),
         dailyBudgetUsd: cfg.dailyBudgetUsd,
+        hasBudgetToken: Boolean(cfg.budgetToken),
+        ...currentDailySpend(cfg),
       },
       jsonFlag(),
     );
@@ -55,7 +63,11 @@ program
   .description("Set API base URL")
   .argument("<url>", "e.g. http://localhost:4021")
   .action((url: string) => {
-    const cfg = saveConfig({ apiUrl: url.replace(/\/$/, "") });
+    const parsed = new URL(url);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      throw new Error("API URL must use http or https");
+    }
+    const cfg = saveConfig({ apiUrl: parsed.toString().replace(/\/$/, "") });
     print({ apiUrl: cfg.apiUrl }, jsonFlag());
   });
 
@@ -118,6 +130,32 @@ program
     }
   });
 
+program
+  .command("rotate-key")
+  .description("Rotate the seller API key and store the replacement")
+  .action(async () => {
+    const j = jsonFlag();
+    try {
+      const result = await api<{ apiKey: string; apiKeyPrefix: string }>(
+        "/v1/auth/rotate-key",
+        { method: "POST" },
+      );
+      saveConfig({ apiKey: result.apiKey });
+      print(
+        {
+          ok: true,
+          apiKey: result.apiKey,
+          apiKeyPrefix: result.apiKeyPrefix,
+          storedAt: configPath(),
+          message: "The previous API key no longer works.",
+        },
+        j,
+      );
+    } catch (err) {
+      fail(err, j);
+    }
+  });
+
 // ── seller projects ───────────────────────────────────────────────
 
 const projects = program.command("projects").description("Manage seller projects");
@@ -172,6 +210,21 @@ projects
     }
   });
 
+projects
+  .command("delete")
+  .description("Delete a project and its routes")
+  .argument("<id>", "Project id")
+  .requiredOption("--yes", "Confirm permanent deletion")
+  .action(async (id: string) => {
+    const j = jsonFlag();
+    try {
+      await api(`/v1/projects/${encodeURIComponent(id)}`, { method: "DELETE" });
+      print({ ok: true, deletedProjectId: id }, j);
+    } catch (err) {
+      fail(err, j);
+    }
+  });
+
 program
   .command("protect")
   .description("Protect an origin URL behind Loopfare x402")
@@ -180,6 +233,7 @@ program
   .option("--path <pattern>", "Path pattern", "/*")
   .option("--price <price>", "Price e.g. 0.001 or $0.001", "$0.001")
   .option("--description <text>", "Route description")
+  .option("--methods <list>", "Comma-separated HTTP methods")
   .action(
     async (opts: {
       project: string;
@@ -187,6 +241,7 @@ program
       path: string;
       price: string;
       description?: string;
+      methods?: string;
     }) => {
       const j = jsonFlag();
       try {
@@ -198,6 +253,7 @@ program
               originUrl: opts.origin,
               price: opts.price,
               description: opts.description,
+              methods: opts.methods,
             }),
           }),
           j,
@@ -207,6 +263,90 @@ program
       }
     },
   );
+
+const routes = program.command("routes").description("Manage protected routes");
+
+routes
+  .command("list")
+  .description("List routes for a project")
+  .requiredOption("--project <id>", "Project id")
+  .action(async (opts: { project: string }) => {
+    const j = jsonFlag();
+    try {
+      print(await api(`/v1/projects/${encodeURIComponent(opts.project)}/routes`), j);
+    } catch (err) {
+      fail(err, j);
+    }
+  });
+
+routes
+  .command("update")
+  .description("Update a protected route")
+  .requiredOption("--project <id>", "Project id")
+  .requiredOption("--route <id>", "Route id")
+  .option("--origin <url>", "New upstream origin")
+  .option("--path <pattern>", "New path pattern")
+  .option("--price <price>", "New price")
+  .option("--description <text>", "New description")
+  .option("--methods <list>", "Comma-separated HTTP methods")
+  .option("--enable", "Enable the route")
+  .option("--disable", "Disable the route")
+  .action(
+    async (opts: {
+      project: string;
+      route: string;
+      origin?: string;
+      path?: string;
+      price?: string;
+      description?: string;
+      methods?: string;
+      enable?: boolean;
+      disable?: boolean;
+    }) => {
+      const j = jsonFlag();
+      try {
+        if (opts.enable && opts.disable) throw new Error("Choose --enable or --disable, not both");
+        const body = {
+          ...(opts.origin ? { originUrl: opts.origin } : {}),
+          ...(opts.path ? { pathPattern: opts.path } : {}),
+          ...(opts.price ? { price: opts.price } : {}),
+          ...(opts.description !== undefined ? { description: opts.description } : {}),
+          ...(opts.methods ? { methods: opts.methods } : {}),
+          ...(opts.enable ? { enabled: true } : {}),
+          ...(opts.disable ? { enabled: false } : {}),
+        };
+        if (Object.keys(body).length === 0) throw new Error("Provide at least one change");
+        print(
+          await api(
+            `/v1/projects/${encodeURIComponent(opts.project)}/routes/${encodeURIComponent(opts.route)}`,
+            { method: "PATCH", body: JSON.stringify(body) },
+          ),
+          j,
+        );
+      } catch (err) {
+        fail(err, j);
+      }
+    },
+  );
+
+routes
+  .command("delete")
+  .description("Delete a protected route")
+  .requiredOption("--project <id>", "Project id")
+  .requiredOption("--route <id>", "Route id")
+  .requiredOption("--yes", "Confirm permanent deletion")
+  .action(async (opts: { project: string; route: string }) => {
+    const j = jsonFlag();
+    try {
+      await api(
+        `/v1/projects/${encodeURIComponent(opts.project)}/routes/${encodeURIComponent(opts.route)}`,
+        { method: "DELETE" },
+      );
+      print({ ok: true, deletedRouteId: opts.route }, j);
+    } catch (err) {
+      fail(err, j);
+    }
+  });
 
 program
   .command("earnings")
@@ -232,16 +372,19 @@ const wallet = program.command("wallet").description("Buyer wallet management");
 wallet
   .command("create")
   .description("Create a new local EVM wallet (Base)")
-  .action(() => {
+  .option("--show-private-key", "Include the private key in command output", false)
+  .action((opts: { showPrivateKey?: boolean }) => {
     const pk = generatePrivateKey();
     const account = privateKeyToAccount(pk);
     saveConfig({ privateKey: pk, address: account.address });
     print(
       {
         address: account.address,
-        privateKey: pk,
+        ...(opts.showPrivateKey ? { privateKey: pk } : {}),
         storedAt: configPath(),
-        warning: "Fund this address with Base Sepolia USDC for testnet payments.",
+        warning:
+          "The private key was stored with mode 600 and is hidden by default. Back it up before funding this wallet.",
+        next: "Set a daily budget before funding this address.",
         faucet: "https://portal.cdp.coinbase.com/products/faucet",
       },
       jsonFlag(),
@@ -285,11 +428,16 @@ budget
     const j = jsonFlag();
     try {
       const address = requireWalletAddress();
+      if (!Number.isFinite(opts.daily) || opts.daily <= 0 || opts.daily > 1_000_000) {
+        throw new Error("Daily budget must be greater than 0 and at most $1,000,000");
+      }
+      const budgetToken = ensureBudgetToken();
       saveConfig({ dailyBudgetUsd: opts.daily, address });
       print(
         await api("/v1/buyer/budget", {
           method: "POST",
           auth: false,
+          headers: { "X-Loopfare-Budget-Token": budgetToken },
           body: JSON.stringify({
             walletAddress: address,
             dailyLimitUsd: opts.daily,
@@ -309,7 +457,15 @@ budget
     const j = jsonFlag();
     try {
       const address = requireWalletAddress();
-      print(await api(`/v1/buyer/budget/${address}`, { auth: false }), j);
+      const cfg = loadConfig();
+      if (!cfg.budgetToken) throw new Error("No budget token. Run: loopfare budget set --daily 5");
+      print(
+        await api(`/v1/buyer/budget/${address}`, {
+          auth: false,
+          headers: { "X-Loopfare-Budget-Token": cfg.budgetToken },
+        }),
+        j,
+      );
     } catch (err) {
       fail(err, j);
     }
@@ -325,14 +481,32 @@ program
   .option("-d, --data <body>", "Request body")
   .option("-H, --header <header...>", "Extra headers (Key: Value)")
   .option("--dev", "Use LOOPFARE-DEV-PAYMENT header (server dev mode)", false)
+  .option("--no-budget", "Explicitly allow a real payment without a configured budget")
   .action(
     async (
       url: string,
-      opts: { method: string; data?: string; header?: string[]; dev?: boolean },
+      opts: {
+        method: string;
+        data?: string;
+        header?: string[];
+        dev?: boolean;
+        budget?: boolean;
+      },
     ) => {
       const j = jsonFlag();
       try {
         const cfg = loadConfig();
+        const parsedUrl = new URL(url);
+        if (parsedUrl.protocol !== "http:" && parsedUrl.protocol !== "https:") {
+          throw new Error("Paid URL must use http or https");
+        }
+        const method = opts.method.toUpperCase();
+        if (!["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"].includes(method)) {
+          throw new Error("Unsupported HTTP method");
+        }
+        if ((method === "GET" || method === "HEAD") && opts.data) {
+          throw new Error(`${method} requests cannot include --data`);
+        }
         const headers: Record<string, string> = {};
         for (const h of opts.header ?? []) {
           const idx = h.indexOf(":");
@@ -347,8 +521,9 @@ program
           } catch {
             /* optional */
           }
+          if (cfg.budgetToken) headers["X-Loopfare-Budget-Token"] = cfg.budgetToken;
           const res = await fetch(url, {
-            method: opts.method,
+            method,
             headers: {
               ...headers,
               ...(opts.data ? { "Content-Type": "application/json" } : {}),
@@ -378,14 +553,48 @@ program
 
         const signer = privateKeyToAccount(cfg.privateKey as `0x${string}`);
         headers["X-Loopfare-Wallet"] = signer.address;
+        if (cfg.budgetToken) headers["X-Loopfare-Budget-Token"] = cfg.budgetToken;
+
+        const enforceBudget = opts.budget !== false;
+        const spend = currentDailySpend(cfg);
+        if (enforceBudget && (!cfg.dailyBudgetUsd || !cfg.budgetToken)) {
+          throw new Error(
+            "No hard budget is configured. Run: loopfare budget set --daily 5  (or explicitly pass --no-budget)",
+          );
+        }
+        const remainingUsd = Math.max(0, (cfg.dailyBudgetUsd ?? 0) - spend.spentTodayUsd);
+        let selectedAmountUsd = 0;
 
         const client = new x402Client();
-        client.register("eip155:*", new ExactEvmScheme(signer));
+        client.register("eip155:8453", new ExactEvmScheme(signer));
+        client.register("eip155:84532", new ExactEvmScheme(signer));
+        client.registerPolicy((_version, requirements) => {
+          const supported = requirements
+            .map((requirement) => ({ requirement, amountUsd: baseUsdcAmount(requirement) }))
+            .filter(
+              (entry): entry is { requirement: (typeof requirements)[number]; amountUsd: number } =>
+                entry.amountUsd !== undefined,
+            )
+            .sort((a, b) => a.amountUsd - b.amountUsd);
+          if (supported.length === 0) {
+            throw new Error("Loopfare CLI only pays USDC on Base or Base Sepolia");
+          }
+          const affordable = enforceBudget
+            ? supported.filter((entry) => entry.amountUsd <= remainingUsd + 1e-9)
+            : supported;
+          if (affordable.length === 0) {
+            throw new Error(
+              `Payment exceeds the remaining daily budget of $${remainingUsd.toFixed(6)}`,
+            );
+          }
+          selectedAmountUsd = affordable[0]!.amountUsd;
+          return affordable.map((entry) => entry.requirement);
+        });
         const fetchWithPayment = wrapFetchWithPayment(fetch, client);
         const httpClient = new x402HTTPClient(client);
 
         const response = await fetchWithPayment(url, {
-          method: opts.method,
+          method,
           headers: {
             ...headers,
             ...(opts.data ? { "Content-Type": "application/json" } : {}),
@@ -394,6 +603,22 @@ program
         });
 
         const result = await httpClient.processResponse(response);
+        let chargedUsd = 0;
+        if (enforceBudget && result.paymentStatus === "settled") {
+          const settledAtomic =
+            result.header && "success" in result.header && result.header.amount
+              ? result.header.amount
+              : undefined;
+          chargedUsd = settledAtomic
+            ? atomicUsdcToUsd(settledAtomic)
+            : selectedAmountUsd;
+          if (chargedUsd > 0) {
+            saveConfig({
+              spentDay: spend.spentDay,
+              spentTodayUsd: Number((spend.spentTodayUsd + chargedUsd).toFixed(6)),
+            });
+          }
+        }
         print(
           {
             status: response.status,
@@ -401,6 +626,14 @@ program
             paymentHeader: result.header ?? null,
             body: result.body,
             wallet: signer.address,
+            budget: enforceBudget
+              ? {
+                  dailyLimitUsd: cfg.dailyBudgetUsd,
+                  spentTodayUsd: Number(
+                    (spend.spentTodayUsd + chargedUsd).toFixed(6),
+                  ),
+                }
+              : { enforced: false },
           },
           j,
         );
@@ -410,6 +643,33 @@ program
       }
     },
   );
+
+const BASE_USDC = {
+  "eip155:8453": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+  "eip155:84532": "0x036cbd53842c5426634e7929541ec2318f3dcf7e",
+} as const;
+
+function baseUsdcAmount(requirement: {
+  network: string;
+  asset: string;
+  amount: string;
+}): number | undefined {
+  const expected = BASE_USDC[requirement.network as keyof typeof BASE_USDC];
+  if (!expected || requirement.asset.toLowerCase() !== expected) return undefined;
+  return atomicUsdcToUsd(requirement.amount);
+}
+
+function atomicUsdcToUsd(amount: string) {
+  if (!/^\d+$/.test(amount)) throw new Error("Invalid USDC payment amount");
+  const atomic = BigInt(amount);
+  const whole = atomic / 1_000_000n;
+  const fraction = atomic % 1_000_000n;
+  const value = Number(whole) + Number(fraction) / 1_000_000;
+  if (!Number.isSafeInteger(Number(whole)) || !Number.isFinite(value)) {
+    throw new Error("USDC payment amount is too large");
+  }
+  return value;
+}
 
 program.parseAsync(process.argv).catch((err) => {
   fail(err, Boolean(program.opts().json));
