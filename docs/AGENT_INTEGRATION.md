@@ -144,4 +144,3 @@ Never log the private key, seller API key, budget token, or full payment signatu
 Seller agents can use `loopfare --json` management commands with a scoped secret environment. Require explicit approval before creating, updating, disabling, or deleting a paid route, rotating an API key, or changing a receiving wallet through future interfaces.
 
 The seller key currently grants the entire account's management authority. Use a dedicated automation account until scoped API tokens are implemented.
-

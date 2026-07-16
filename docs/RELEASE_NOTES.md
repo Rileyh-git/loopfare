@@ -69,4 +69,3 @@ Loopfare follows semantic versioning for application releases. During the `0.x` 
 - Added the Hono API, SQLite schema, dynamic paid routes, x402 integration, basic seller management, buyer wallet CLI, and local development payment mode.
 
 Version 0.1 should not be used for public production traffic because it lacks the isolation, secret handling, proxy controls, tests, and operations behavior introduced in 0.2.
-

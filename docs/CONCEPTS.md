@@ -124,4 +124,3 @@ The service stores accounts, projects, routes, payment events, and budgets in SQ
 `LOOPFARE_DEV_MODE=true` accepts a development payment header without crypto. It is for local integration tests only. A process with `NODE_ENV=production` refuses to start in development payment mode.
 
 Production does not mean mainnet. The hosted service is a production-operated Base Sepolia beta until the separate mainnet gate is complete.
-

@@ -147,4 +147,3 @@ Include:
 - minimal reproduction steps.
 
 Report security issues using the private process in `SECURITY.md`, not a public issue.
-

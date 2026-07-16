@@ -149,4 +149,3 @@ The public documentation and API are available at `https://api-production-dd0a0.
 - Read the [buyer manual](./BUYER_MANUAL.md) before funding a wallet.
 - Use the [API reference](./API_REFERENCE.md) for direct HTTP integrations.
 - Follow the [production checklist](./PRODUCTION.md) before handling real value.
-
