@@ -1,10 +1,16 @@
 # Loopfare CLI reference
 
-This is the complete command reference for Loopfare CLI 0.2.3. The CLI combines seller administration with a local x402 buyer wallet.
+This is the complete command reference for Loopfare CLI 0.2.4. The CLI combines seller administration with a local x402 buyer wallet.
 
 ## Install
 
-Node.js 22 or later is required. Install the current public release from npm:
+Node.js 22 or later is required. Start with a no-install connectivity check:
+
+```bash
+npx --yes @loopfare/cli@latest doctor
+```
+
+For repeated use, install the current public release from npm:
 
 ```bash
 npm install --global @loopfare/cli@latest
@@ -12,11 +18,7 @@ loopfare --version
 loopfare doctor
 ```
 
-For a no-install connectivity check:
-
-```bash
-npx --yes @loopfare/cli@latest doctor
-```
+If a global install reports `EACCES`, do not use `sudo`. Follow the [user-owned npm prefix instructions](./TROUBLESHOOTING.md#npm-global-install-fails-with-eacces) or install Node.js through a version manager.
 
 ## Syntax and global options
 

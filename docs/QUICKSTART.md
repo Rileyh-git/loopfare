@@ -45,6 +45,8 @@ loopfare doctor
 loopfare set-api http://localhost:4021
 ```
 
+If the global install reports `EACCES`, do not use `sudo`; follow the [user-owned npm prefix instructions](./TROUBLESHOOTING.md#npm-global-install-fails-with-eacces), then retry it.
+
 Contributors changing the CLI can instead build the checkout and run `npm link -w @loopfare/cli` from the repository root.
 
 Every command supports the top-level `--json` option. Put it before the subcommand, for example `loopfare --json projects list`.

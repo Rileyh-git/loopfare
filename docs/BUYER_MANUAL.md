@@ -20,6 +20,8 @@ npm install --global @loopfare/cli@latest
 loopfare doctor
 ```
 
+If npm reports `EACCES`, do not use `sudo`; follow the [user-owned npm prefix instructions](./TROUBLESHOOTING.md#npm-global-install-fails-with-eacces), then retry the install.
+
 The CLI defaults to `https://api-production-dd0a0.up.railway.app`. Use `loopfare set-api https://loopfare.example` for another hosted instance or `loopfare set-api http://localhost:4021` for local development. `loopfare call` accepts a full paid URL and can also call other compatible x402 endpoints directly.
 
 ## Wallet safety first

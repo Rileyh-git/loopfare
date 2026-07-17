@@ -44,14 +44,18 @@ Loopfare paid proxy ── 2. HTTP 402 + PAYMENT-REQUIRED
 The public beta defaults to the hosted Base Sepolia service. A first diagnostic and wallet test does not require an account, faucet assets, or blockchain payment:
 
 ```bash
-npm install --global @loopfare/cli@latest
+npx --yes @loopfare/cli@latest doctor
+```
 
-loopfare doctor
+For repeated use, install the command globally:
+
+```bash
+npm install --global @loopfare/cli@latest
 loopfare wallet create
 loopfare config
 ```
 
-Node.js 22 or newer is required. The same npm command upgrades an existing installation. For a no-install connectivity check, run `npx --yes @loopfare/cli@latest doctor`. `wallet create` stores the private key locally without printing it. Back up `~/.loopfare/config.json` securely before funding the address.
+Node.js 22 or newer is required. The same npm command upgrades an existing installation. If a global install reports `EACCES`, do not use `sudo`; use a Node version manager or the user-owned npm prefix described in the [troubleshooting guide](./docs/TROUBLESHOOTING.md#npm-global-install-fails-with-eacces). `wallet create` stores the private key locally without printing it. Back up `~/.loopfare/config.json` securely before funding the address.
 
 To exercise the complete payment workflow without blockchain assets, continue with the local quickstart below. It uses an isolated development-payment header that production refuses to accept.
 

@@ -1,6 +1,6 @@
 {
   "name": "@loopfare/cli",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "Budget-aware x402 CLI for Loopfare on Base",
   "license": "MIT",
   "repository": {

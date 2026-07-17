@@ -399,7 +399,7 @@ export function websiteHtml(options: WebsiteOptions) {
       <div class="shell steps">
         <div class="terminal">
           <div class="terminal-bar"><span class="dots"><i></i><i></i><i></i></span><button class="copy" type="button" data-copy="seller-code">Copy</button></div>
-          <pre id="seller-code"><span class="code-muted"># install the public CLI</span>
+          <pre id="seller-code"><span class="code-muted"># install the public CLI (use npx for a one-off doctor check)</span>
 <span class="code-purple">npm</span> install --global @loopfare/cli@latest
 
 <span class="code-muted"># create a seller account</span>

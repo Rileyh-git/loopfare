@@ -1,1 +1,1 @@
-export const LOOPFARE_VERSION = "0.2.3";
+export const LOOPFARE_VERSION = "0.2.4";

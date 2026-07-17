@@ -75,12 +75,12 @@ test("reports liveness and database readiness", async () => {
   assert.equal(metadata.status, 200);
   const service = await json(metadata);
   assert.equal(service.name, "loopfare");
-  assert.equal(service.version, "0.2.3");
+  assert.equal(service.version, "0.2.4");
   assert.equal(service.network, "base-sepolia");
   assert.equal(health.status, 200);
   const healthReport = await json(health);
   assert.equal(healthReport.ok, true);
-  assert.equal(healthReport.version, "0.2.3");
+  assert.equal(healthReport.version, "0.2.4");
   assert.equal(ready.status, 200);
 });
 

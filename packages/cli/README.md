@@ -6,7 +6,13 @@ Loopfare is currently a Base Sepolia public beta. Do not fund a test wallet with
 
 ## Install
 
-Node.js 22 or newer is required. Install the current public release from npm:
+Node.js 22 or newer is required. Test the current public release without installing it globally:
+
+```bash
+npx --yes @loopfare/cli@latest doctor
+```
+
+For repeated use, install the command globally:
 
 ```bash
 npm install --global @loopfare/cli@latest
@@ -14,7 +20,7 @@ loopfare --version
 loopfare doctor
 ```
 
-Run the same npm command to upgrade an existing installation. For a no-install connectivity check, run `npx --yes @loopfare/cli@latest doctor`. The CLI defaults to the hosted Base Sepolia service at `https://api-production-dd0a0.up.railway.app`; use `loopfare set-api URL` for a local or self-hosted instance.
+Run the same npm command to upgrade an existing installation. If macOS or Linux reports `EACCES`, do not use `sudo`; use a Node version manager or configure npm with a user-owned prefix by following the repository [troubleshooting guide](https://github.com/Rileyh-git/loopfare/blob/main/docs/TROUBLESHOOTING.md#npm-global-install-fails-with-eacces). The CLI defaults to the hosted Base Sepolia service at `https://api-production-dd0a0.up.railway.app`; use `loopfare set-api URL` for a local or self-hosted instance.
 
 ## Safe first test
 

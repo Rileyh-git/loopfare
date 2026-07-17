@@ -2,6 +2,13 @@
 
 Loopfare follows semantic versioning for application releases. During the `0.x` beta, minor releases may include API or operational changes that require explicit upgrade review.
 
+## 0.2.4 — portable CLI installation
+
+- Make `npx --yes @loopfare/cli@latest doctor` the primary zero-install diagnostic path.
+- Document npm `EACCES` recovery through a Node version manager or user-owned npm prefix, without `sudo`.
+- Update the npm package README, website quickstart, FAQ, manuals, CLI reference, and troubleshooting guide with consistent installation guidance.
+- Clarify that the supported x402 exact flow does not normally require a separate buyer gas balance.
+
 ## 0.2.3 — trusted npm release
 
 - Publish `@loopfare/cli` through npm Trusted Publishing with GitHub Actions OIDC provenance.

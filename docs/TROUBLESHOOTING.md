@@ -4,6 +4,28 @@ Start with the response status, JSON `error`, `message`, and `X-Request-Id`. Sea
 
 ## Installation and startup
 
+### npm global install fails with `EACCES`
+
+This means npm's global prefix is owned by the operating system, commonly `/usr/local` on macOS. It is not a Loopfare package failure. Do not run `sudo npm install`, because global package scripts would then run with elevated privileges.
+
+For a no-install test, use:
+
+```bash
+npx --yes @loopfare/cli@latest doctor
+```
+
+The preferred long-term fix is to install Node.js through a version manager. Alternatively, configure npm to use a directory owned by your user. For zsh on macOS:
+
+```bash
+npm config set prefix ~/.local
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zprofile
+source ~/.zprofile
+npm install --global @loopfare/cli@latest
+loopfare doctor
+```
+
+This follows npm's documented user-prefix approach and leaves `/usr/local` ownership unchanged.
+
 ### `npm ci` fails while building `better-sqlite3`
 
 Use Node.js 22 on a supported platform with a compiler toolchain and Python available. On Railway, the included Nixpacks plan supplies Node 22 and Python.
@@ -74,7 +96,7 @@ The bundled client accepts only exact USDC requirements on Base or Base Sepolia.
 
 ### Insufficient balance or settlement failure
 
-Confirm the buyer has USDC and the network's gas token on the exact advertised network. Review `PAYMENT-REQUIRED`, facilitator availability, and the wallet transaction history.
+Confirm the buyer has official USDC on the exact advertised network. For the supported x402 exact flow, the facilitator submits settlement and a separate buyer gas balance is not normally required. Review `PAYMENT-REQUIRED`, facilitator availability, and the wallet transaction history.
 
 ### Origin succeeded but payment was not recorded
 

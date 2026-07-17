@@ -37,6 +37,8 @@ npm install --global @loopfare/cli@latest
 loopfare --version
 ```
 
+If npm reports `EACCES`, do not use `sudo`; follow the [user-owned npm prefix instructions](./TROUBLESHOOTING.md#npm-global-install-fails-with-eacces), then retry the install.
+
 Tell the CLI which Loopfare service to use:
 
 ```bash
