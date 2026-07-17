@@ -9,6 +9,25 @@ type Caip2 = `${string}:${string}`;
 
 let resourceServer: x402ResourceServer | null = null;
 
+type RoutePaymentOptions = {
+  method: string;
+  path: string;
+  resource: string;
+  price: string;
+  payTo: string;
+  description: string;
+};
+
+export function publicResourceUrl(path: string, search = ""): string {
+  if (!path.startsWith("/") || path.startsWith("//")) {
+    throw new Error("Public resource path must be an absolute application path");
+  }
+  if (search && !search.startsWith("?")) {
+    throw new Error("Public resource search must be empty or start with ?");
+  }
+  return `${config.publicUrl}${path}${search}`;
+}
+
 export function getResourceServer(): x402ResourceServer {
   if (resourceServer) return resourceServer;
   const facilitatorClient = new HTTPFacilitatorClient({
@@ -21,10 +40,10 @@ export function getResourceServer(): x402ResourceServer {
   return resourceServer;
 }
 
-export function buildDemoPaymentMiddleware(): MiddlewareHandler {
-  const server = getResourceServer();
-  const routes: RoutesConfig = {
+export function buildDemoPaymentRoutes(): RoutesConfig {
+  return {
     "GET /demo/v1/fortune": {
+      resource: publicResourceUrl("/demo/v1/fortune"),
       accepts: [
         {
           scheme: "exact",
@@ -37,20 +56,19 @@ export function buildDemoPaymentMiddleware(): MiddlewareHandler {
       mimeType: "application/json",
     },
   };
+}
+
+export function buildDemoPaymentMiddleware(): MiddlewareHandler {
+  const server = getResourceServer();
+  const routes = buildDemoPaymentRoutes();
   return paymentMiddleware(routes, server);
 }
 
-export function buildRoutePaymentMiddleware(opts: {
-  method: string;
-  path: string;
-  price: string;
-  payTo: string;
-  description: string;
-}): MiddlewareHandler {
-  const server = getResourceServer();
+export function buildRoutePaymentRoutes(opts: RoutePaymentOptions): RoutesConfig {
   const key = `${opts.method.toUpperCase()} ${opts.path}`;
-  const routes: RoutesConfig = {
+  return {
     [key]: {
+      resource: opts.resource,
       accepts: [
         {
           scheme: "exact",
@@ -63,6 +81,11 @@ export function buildRoutePaymentMiddleware(opts: {
       mimeType: "application/json",
     },
   };
+}
+
+export function buildRoutePaymentMiddleware(opts: RoutePaymentOptions): MiddlewareHandler {
+  const server = getResourceServer();
+  const routes = buildRoutePaymentRoutes(opts);
   return paymentMiddleware(routes, server);
 }
 

@@ -104,7 +104,7 @@ A real event is recorded only if `PAYMENT-RESPONSE` is present after settlement.
 
 ### Demo returns 503
 
-`DEMO_PAY_TO` is not configured. This is expected on the hosted beta until an operator receiving wallet is supplied.
+`DEMO_PAY_TO` is not configured on that deployment. Set it to a controlled receiving wallet and redeploy. The public hosted beta is already configured; a 503 there indicates an operator regression.
 
 ## Budgets and wallets
 

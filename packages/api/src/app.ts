@@ -47,6 +47,7 @@ import {
   buildDemoPaymentMiddleware,
   buildRoutePaymentMiddleware,
   isDevPaymentAuthorized,
+  publicResourceUrl,
 } from "./x402.js";
 
 type AuthEnv = {
@@ -196,7 +197,7 @@ app.get("/docs/:document", (c) => {
 app.get("/api", (c) =>
   c.json({
     name: "loopfare",
-    version: "0.2.4",
+    version: "0.2.5",
     tagline: "Make every API call pay its fare",
     network: config.network,
     networkCaip2: config.networkCaip2,
@@ -222,7 +223,7 @@ app.get("/health", (c) =>
   c.json({
     ok: databaseReady(),
     service: "loopfare",
-    version: "0.2.4",
+    version: "0.2.5",
     network: config.network,
     demoEnabled: config.demoEnabled,
     timestamp: new Date().toISOString(),
@@ -644,6 +645,7 @@ async function handlePaidProxy(c: Context<AuthEnv>) {
   const gate = buildRoutePaymentMiddleware({
     method: c.req.method,
     path: c.req.path,
+    resource: publicResourceUrl(c.req.path, new URL(c.req.url).search),
     price: route.price,
     payTo: route.pay_to,
     description: route.description || `Loopfare protected: ${projectSlug}${rest}`,

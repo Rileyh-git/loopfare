@@ -151,7 +151,7 @@ loopfare budget show --json
 
 ## Hosted beta
 
-The public documentation and API are available at `https://api-production-dd0a0.up.railway.app`. The paid demo remains disabled until the operator supplies a receiving wallet. Seller signup is available, but you must use an API origin and wallet you control.
+The public documentation and API are available at `https://api-production-dd0a0.up.railway.app`. The hosted demo advertises a real `$0.001` Base Sepolia USDC payment requirement. Seller signup is available, but you must use an API origin and wallet you control.
 
 For a no-account hosted connectivity test after installing the CLI:
 
@@ -159,7 +159,7 @@ For a no-account hosted connectivity test after installing the CLI:
 loopfare doctor
 ```
 
-For a no-funds end-to-end payment simulation, use the local development workflow in this guide. A real hosted x402 test currently requires a seller-created route plus Base Sepolia test assets.
+For a no-funds end-to-end payment simulation, use the local development workflow in this guide. A real hosted x402 test can call `https://api-production-dd0a0.up.railway.app/demo/v1/fortune` and requires Base Sepolia USDC.
 
 ## Next steps
 

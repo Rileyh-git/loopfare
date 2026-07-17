@@ -2,6 +2,13 @@
 
 Loopfare follows semantic versioning for application releases. During the `0.x` beta, minor releases may include API or operational changes that require explicit upgrade review.
 
+## 0.2.5 — hosted paid demo
+
+- Enable the public `$0.001` Base Sepolia USDC demo with an operator-controlled receiving wallet.
+- Pin x402 resource metadata to the configured public HTTPS URL instead of the reverse proxy's internal request scheme.
+- Apply the same canonical resource URL handling to seller-created paid proxy routes, including query strings.
+- Update hosted-beta documentation now that real demo payments are available.
+
 ## 0.2.4 — portable CLI installation
 
 - Make `npx --yes @loopfare/cli@latest doctor` the primary zero-install diagnostic path.

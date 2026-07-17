@@ -57,6 +57,13 @@ loopfare config
 
 Node.js 22 or newer is required. The same npm command upgrades an existing installation. If a global install reports `EACCES`, do not use `sudo`; use a Node version manager or the user-owned npm prefix described in the [troubleshooting guide](./docs/TROUBLESHOOTING.md#npm-global-install-fails-with-eacces). `wallet create` stores the private key locally without printing it. Back up `~/.loopfare/config.json` securely before funding the address.
 
+After funding a disposable wallet with Base Sepolia USDC, the hosted `$0.001` demo provides a real x402 test:
+
+```bash
+loopfare budget set --daily 1
+loopfare call https://api-production-dd0a0.up.railway.app/demo/v1/fortune
+```
+
 To exercise the complete payment workflow without blockchain assets, continue with the local quickstart below. It uses an isolated development-payment header that production refuses to accept.
 
 ## Local quickstart

@@ -34,6 +34,15 @@ loopfare config
 
 The generated private key is stored at `~/.loopfare/config.json`, hidden from normal output, and protected with file mode `0600` on POSIX systems. Back up that file securely before funding the address.
 
+## Hosted payment test
+
+After funding a disposable wallet with Base Sepolia USDC, set a budget and call the public `$0.001` demo:
+
+```bash
+loopfare budget set --daily 1
+loopfare call https://api-production-dd0a0.up.railway.app/demo/v1/fortune
+```
+
 For a complete simulated payment, follow the repository [quickstart](https://github.com/Rileyh-git/loopfare/blob/main/docs/QUICKSTART.md). For command details, use `loopfare help COMMAND` or read the [CLI reference](https://github.com/Rileyh-git/loopfare/blob/main/docs/CLI_REFERENCE.md).
 
 ## Security

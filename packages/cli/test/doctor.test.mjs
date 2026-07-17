@@ -22,7 +22,7 @@ test("doctor reports a reachable Base Sepolia service without exposing secrets",
       return new Response(
         JSON.stringify({
           name: "loopfare",
-          version: "0.2.4",
+          version: "0.2.5",
           network: "base-sepolia",
           networkCaip2: "eip155:84532",
           protocol: "x402-v2",

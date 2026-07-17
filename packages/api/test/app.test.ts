@@ -15,6 +15,7 @@ const { app } = await import("../src/app.js");
 const db = await import("../src/db.js");
 const originSecurity = await import("../src/origin-security.js");
 const docsSite = await import("../src/docs-site.js");
+const x402 = await import("../src/x402.js");
 
 after(() => {
   db.closeDatabase();
@@ -75,12 +76,12 @@ test("reports liveness and database readiness", async () => {
   assert.equal(metadata.status, 200);
   const service = await json(metadata);
   assert.equal(service.name, "loopfare");
-  assert.equal(service.version, "0.2.4");
+  assert.equal(service.version, "0.2.5");
   assert.equal(service.network, "base-sepolia");
   assert.equal(health.status, 200);
   const healthReport = await json(health);
   assert.equal(healthReport.ok, true);
-  assert.equal(healthReport.version, "0.2.4");
+  assert.equal(healthReport.version, "0.2.5");
   assert.equal(ready.status, 200);
 });
 
@@ -211,6 +212,31 @@ test("supports local dev payments without contacting a facilitator", async () =>
   });
   assert.equal(response.status, 200);
   assert.equal((await json(response)).charged, "$0.001");
+});
+
+test("publishes canonical public URLs in x402 payment requirements", () => {
+  const demoRoutes = x402.buildDemoPaymentRoutes() as Record<
+    string,
+    { resource?: string }
+  >;
+  assert.equal(
+    demoRoutes["GET /demo/v1/fortune"]?.resource,
+    "http://localhost:4021/demo/v1/fortune",
+  );
+
+  const resource = x402.publicResourceUrl("/p/weather/current", "?units=metric");
+  const proxyRoutes = x402.buildRoutePaymentRoutes({
+    method: "GET",
+    path: "/p/weather/current",
+    resource,
+    price: "$0.001",
+    payTo: "0x1111111111111111111111111111111111111111",
+    description: "Weather",
+  }) as Record<string, { resource?: string }>;
+  assert.equal(
+    proxyRoutes["GET /p/weather/current"]?.resource,
+    "http://localhost:4021/p/weather/current?units=metric",
+  );
 });
 
 test("validates prices, methods, paths, and IP ranges", () => {

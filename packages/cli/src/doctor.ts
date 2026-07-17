@@ -74,7 +74,7 @@ export async function runDoctor(fetcher: typeof fetch = fetch, timeoutMs = 5_000
     next.push("Set a test budget with: loopfare budget set --daily 1");
   }
   if (metadata?.demoEnabled === false) {
-    next.push("The hosted paid demo is disabled; use the local development demo or a seller route.");
+    next.push("This service's paid demo is disabled; use the local development demo or a seller route.");
   }
 
   return {

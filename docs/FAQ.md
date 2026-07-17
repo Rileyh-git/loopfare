@@ -36,9 +36,9 @@ After the payment is verified. The payment settles only if the origin returns a 
 
 Loopfare does not follow it. The redirect response is returned as the protected response if its status is below 400, and normal x402 settlement rules apply. Prefer returning the final content directly.
 
-### Why is the paid demo unavailable?
+### Why might a self-hosted paid demo be unavailable?
 
-The operator has not configured `DEMO_PAY_TO`. A disabled demo returns HTTP 503 rather than advertising a zero address.
+The operator has not configured `DEMO_PAY_TO`. A disabled deployment returns HTTP 503 rather than advertising a zero address. The public hosted beta has a configured Base Sepolia receiving wallet and advertises a real x402 payment requirement.
 
 ## Accounts and keys
 
@@ -64,7 +64,7 @@ Install Node.js 22 or newer, then run `npx --yes @loopfare/cli@latest doctor` fo
 
 ### Can I test a complete payment without faucet assets?
 
-Yes, locally. Start the development server from the repository and call its demo with `loopfare call http://localhost:4021/demo/v1/fortune --dev`. Production rejects this development-payment mechanism. The hosted paid demo remains disabled until the operator configures its receiving wallet.
+Yes, locally. Start the development server from the repository and call its demo with `loopfare call http://localhost:4021/demo/v1/fortune --dev`. Production rejects this development-payment mechanism. The hosted demo is also available for a real `$0.001` Base Sepolia USDC payment when the buyer wallet has testnet funds.
 
 ## Pricing and budgets
 
