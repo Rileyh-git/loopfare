@@ -1,6 +1,6 @@
 # Loopfare CLI reference
 
-This is the complete command reference for Loopfare CLI 0.2.2. The CLI combines seller administration with a local x402 buyer wallet.
+This is the complete command reference for Loopfare CLI 0.2.3. The CLI combines seller administration with a local x402 buyer wallet.
 
 ## Install
 

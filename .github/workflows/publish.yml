@@ -59,4 +59,4 @@ jobs:
           node-version: 24
           registry-url: https://registry.npmjs.org
           package-manager-cache: false
-      - run: npm publish release/*.tgz --access public
+      - run: npm publish ./release/*.tgz --access public

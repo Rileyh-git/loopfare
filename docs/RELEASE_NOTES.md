@@ -2,12 +2,17 @@
 
 Loopfare follows semantic versioning for application releases. During the `0.x` beta, minor releases may include API or operational changes that require explicit upgrade review.
 
-## 0.2.2 — trusted npm release
+## 0.2.3 — trusted npm release
 
 - Publish `@loopfare/cli` through npm Trusted Publishing with GitHub Actions OIDC provenance.
+- Correct the release job's local tarball path so npm publishes the verified artifact instead of treating it as a Git package spec.
+
+## 0.2.2 — public install and release hardening
+
 - Replace source-install instructions with the public npm install and no-install `npx` paths.
 - Keep repository, application, CLI, package metadata, tests, and public references on one release version.
 - Preserve the source-link workflow only for contributors developing the CLI locally.
+- Split release verification from publishing so dependency scripts never receive OIDC authority, pin third-party actions, require the tag commit on `main`, and package the license.
 
 ## 0.2.1 — public CLI readiness
 
