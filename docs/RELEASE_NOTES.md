@@ -2,6 +2,14 @@
 
 Loopfare follows semantic versioning for application releases. During the `0.x` beta, minor releases may include API or operational changes that require explicit upgrade review.
 
+## 0.2.6 — first-party insights and CLI welcome
+
+- Add privacy-conscious first-party usage collection with owner-only aggregate metrics, funnel reporting, daily rollups, bot filtering, and configurable retention.
+- Track real adoption across visits, signups, projects, wallets, demo calls, payment attempts, and settlements without adding a third-party analytics service.
+- Give successful CLI signups a responsive, color-aware Loopfare wordmark, clear account details, and useful next commands while preserving clean `--json` automation output.
+- Stop revealing the saved seller API key in normal human-readable signup output.
+- Upgrade the Hono Node adapter and patched transitive URI parser to clear the production dependency audit gate.
+
 ## 0.2.5 — hosted paid demo
 
 - Enable the public `$0.001` Base Sepolia USDC demo with an operator-controlled receiving wallet.

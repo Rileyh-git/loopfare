@@ -1,6 +1,6 @@
 # Loopfare error reference
 
-This reference covers Loopfare `0.2.5`. Always record the response status, body, and `X-Request-Id`. Payment-protocol errors can also carry `PAYMENT-REQUIRED` or `PAYMENT-RESPONSE`.
+This reference covers Loopfare `0.2.6`. Always record the response status, body, and `X-Request-Id`. Payment-protocol errors can also carry `PAYMENT-REQUIRED` or `PAYMENT-RESPONSE`.
 
 ## Body formats
 
