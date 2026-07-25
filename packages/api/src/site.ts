@@ -493,7 +493,7 @@ export function websiteHtml(options: WebsiteOptions) {
           <a class="brand" href="/">${logoSvg()}<span>loopfare</span></a>
           <p class="footer-copy">Usage-based payments for APIs and AI agents, powered by x402 and Base.</p>
         </div>
-        <div><h3>Product</h3><div class="footer-links"><a href="#product">Features</a><a href="#how">How it works</a><a href="${demoHref}">Demo</a></div></div>
+        <div><h3>Product</h3><div class="footer-links"><a href="#product">Features</a><a href="#how">How it works</a><a href="${demoHref}">Demo</a><a href="/docs/security-model#usage-analytics-privacy">Analytics privacy</a></div></div>
         <div><h3>Developers</h3><div class="footer-links"><a href="/docs/quickstart">Quickstart</a><a href="/docs/api-reference">API reference</a><a href="/docs/cli-reference">CLI reference</a><a href="/skill.md">Agent skill</a></div></div>
         <div><h3>Open source</h3><div class="footer-links"><a href="${githubUrl}">GitHub</a><a href="${npmUrl}">npm package</a><a href="${githubUrl}/issues">Issues</a><a href="${githubUrl}/blob/main/LICENSE">MIT license</a></div></div>
       </div>

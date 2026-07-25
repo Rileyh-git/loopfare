@@ -37,6 +37,7 @@ loopfare/
 │   │   │   ├── app.ts               routes, middleware, proxy, public API
 │   │   │   ├── config.ts            environment loading and validation
 │   │   │   ├── db.ts                SQLite schema, migrations, queries
+│   │   │   ├── usage.ts             first-party events, privacy, aggregates
 │   │   │   ├── origin-security.ts   URL, DNS, address, connection controls
 │   │   │   ├── x402.ts              x402 resource server and gates
 │   │   │   └── site.ts              generated marketing HTML and assets
@@ -126,6 +127,12 @@ accounts 1 ───────< projects 1 ───────< routes
                         +─────────────< payments
 
 buyer_budgets     (keyed independently by wallet address)
+
+usage_events ─────> usage_daily
+       |
+       +──────────> usage_daily_identities
+
+usage_config       (analytics HMAC key material)
 ```
 
 ### `accounts`
@@ -168,6 +175,15 @@ Demo events may have no project. Foreign keys are not declared on this table, so
 - daily limit, current UTC-day spend, day marker, and update timestamp.
 
 The day resets lazily when the record is read.
+
+### First-party usage tables
+
+- `usage_events` stores normalized request and product events with HMAC-protected session, network, and wallet identifiers;
+- `usage_daily` stores constant-time counters and reconciled daily visitor, funnel, revenue, and error aggregates;
+- `usage_daily_identities` deduplicates HMAC-protected browser sessions and configured wallets within a UTC day;
+- `usage_config` stores randomly generated analytics key material for stable pseudonymous identifiers.
+
+Raw IP addresses, full user-agent strings, and referrer query strings are never written. Raw events and daily identities follow `USAGE_RETENTION_DAYS`; aggregate daily rows remain for trends. These tables support product analytics, not infrastructure health monitoring or payment reconciliation.
 
 ## Seller management flow
 
@@ -345,11 +361,11 @@ A typical next architecture would use Postgres for tenant/configuration state, a
 - No management audit log or operator console.
 - No email verification, account recovery, roles, or organization model.
 - No maintenance/read-only mode for consistent restore cutovers.
-- No automated off-platform data export or retention job.
+- No automated off-platform data export; usage retention is write-triggered rather than scheduled.
 - No transaction/finality reconciliation loop.
 - No shared proxy concurrency policy; limits remain process-local.
 - No authenticated facilitator configuration for mainnet.
-- No central metrics/traces and no shared rate limiter.
+- First-party product metrics are single-instance SQLite aggregates; there are no central infrastructure metrics/traces or shared rate limits.
 - No dedicated per-tenant process/network isolation for seller origins.
 
 These gaps define the boundary of the current public beta and should drive the production roadmap.

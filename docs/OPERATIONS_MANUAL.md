@@ -11,6 +11,7 @@ This manual covers day-to-day operation, deployment, incident response, backup, 
 | `GET /health/live` | Process liveness | None |
 | `GET /health/ready` | SQLite readiness | None |
 | `/v1/auth/*` | Seller signup, identity, and key rotation | Signup is public when enabled; other routes use a Bearer API key |
+| `GET /v1/admin/metrics` | Usage, funnel, route, client, and revenue aggregates | Owner Bearer API key |
 | `/v1/projects/*` | Projects, protected routes, payments, earnings | Seller Bearer API key |
 | `/v1/buyer/budget/*` | Compatible-client budget state | Separate budget token |
 | `/p/:projectSlug/*` | Public x402 paid reverse proxy | x402 payment; budget headers are optional |
@@ -59,6 +60,19 @@ railway deployment list --service api --limit 10
 
 Avoid logging full authorization or payment headers. When sharing logs, remove emails, wallet addresses, payment metadata, tokens, query values, and upstream response bodies unless specifically required and approved.
 
+### First-party usage metrics
+
+`GET /v1/admin/metrics?days=30` returns an owner-only usage snapshot. The `days` window may be from 1 through `USAGE_RETENTION_DAYS`.
+
+```bash
+curl 'https://YOUR_DOMAIN/v1/admin/metrics?days=30' \
+  -H 'Authorization: Bearer lf_OWNER_API_KEY'
+```
+
+The response includes unique and returning visitors, signups, configured and active wallets, payment challenges, attempts, settlements split by x402/dev and demo/proxy usage, revenue, proxy traffic, error rate, the conversion funnel, daily aggregates, top routes, and client categories. Lifetime totals are derived from transactional account, project, budget, and payment tables, so they include records created before usage events were introduced.
+
+Loopfare sets an opaque, first-party `lf_session` cookie for browser visitors. The database stores only an HMAC of that value. Wallet and network identifiers are also HMAC-protected. Raw IP addresses, full user-agent strings, and referrer query strings are not stored. Health checks, metrics requests, and static browser assets are skipped. Recognized bots are retained only as filtered quality counts and are excluded from reported usage.
+
 ### Minimum alerts
 
 Configure alerts for:
@@ -73,17 +87,18 @@ Configure alerts for:
 - unusual seller signup volume;
 - backup job failure or missed restore drill.
 
-Loopfare does not yet expose Prometheus metrics, distributed traces, facilitator-specific counters, or an audit-log stream. Use Railway HTTP/application logs and external synthetic checks until those are implemented.
+Loopfare does not expose Prometheus metrics, distributed traces, facilitator-specific counters, or an audit-log stream. Use the first-party usage endpoint for product metrics, and Railway HTTP/application logs plus external synthetic checks for infrastructure monitoring.
 
 ## Daily checklist
 
 1. Confirm the active deployment is healthy and not restarting.
 2. Check `/health/ready` externally.
-3. Review new 5xx errors and slow requests.
-4. Check facilitator status and payment error trends.
-5. Check volume use and last successful backup.
-6. Review unexpected signup, key rotation, route change, and high-volume payment reports.
-7. Confirm the public network is the intended network.
+3. Review `/v1/admin/metrics` for funnel changes, error rate, and unusual bot traffic.
+4. Review new 5xx errors and slow requests.
+5. Check facilitator status and payment error trends.
+6. Check volume use and last successful backup.
+7. Review unexpected signup, key rotation, route change, and high-volume payment reports.
+8. Confirm the public network is the intended network.
 
 ## Release and deployment runbook
 

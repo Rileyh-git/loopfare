@@ -49,12 +49,21 @@ import {
   isDevPaymentAuthorized,
   publicResourceUrl,
 } from "./x402.js";
+import {
+  createRequestUsageContext,
+  getUsageMetrics,
+  hashUsageIdentifier,
+  recordUsageEvent,
+  usageCookie,
+} from "./usage.js";
+import type { RequestUsageContext, UsageEventInput } from "./usage.js";
 
 type AuthEnv = {
   Variables: {
     accountId: string;
     email: string;
     requestId: string;
+    usage: RequestUsageContext;
   };
 };
 
@@ -89,10 +98,51 @@ app.use(
 app.use("*", async (c, next) => {
   const requestId = c.req.header("X-Request-Id")?.slice(0, 100) || randomUUID();
   const startedAt = Date.now();
+  const usage = createRequestUsageContext({
+    requestId,
+    path: c.req.path,
+    headers: c.req.raw.headers,
+  });
   c.set("requestId", requestId);
+  c.set("usage", usage);
   c.header("X-Request-Id", requestId);
-  await next();
-  c.header("X-Response-Time", `${Date.now() - startedAt}ms`);
+  if (usage.sessionCookie) c.header("Set-Cookie", usageCookie(usage.sessionCookie));
+
+  try {
+    await next();
+  } catch (error) {
+    const durationMs = Date.now() - startedAt;
+    trackUsage(c, {
+      eventType: "request_completed",
+      method: c.req.method,
+      route: c.req.path,
+      statusCode: errorStatus(error),
+      durationMs,
+    });
+    throw error;
+  }
+
+  const durationMs = Date.now() - startedAt;
+  c.header("X-Response-Time", `${durationMs}ms`);
+  if (usage.sessionCookie) {
+    c.header("Cache-Control", "private, no-cache");
+  }
+  trackUsage(c, {
+    eventType: "request_completed",
+    method: c.req.method,
+    route: c.req.path,
+    statusCode: c.res.status,
+    durationMs,
+  });
+  if (isPublicPageView(c) && c.res.status < 400) {
+    trackUsage(c, {
+      eventType: "page_view",
+      method: c.req.method,
+      route: c.req.path,
+      statusCode: c.res.status,
+      durationMs,
+    });
+  }
   if (!c.req.path.startsWith("/health")) {
     console.log(
       JSON.stringify({
@@ -102,7 +152,7 @@ app.use("*", async (c, next) => {
         method: c.req.method,
         path: c.req.path,
         status: c.res.status,
-        durationMs: Date.now() - startedAt,
+        durationMs,
       }),
     );
   }
@@ -146,7 +196,7 @@ app.use("/demo/*", rateLimit({ limit: 120, windowMs: 60_000 }));
 // ── Website, metadata, and health ────────────────────────────────
 
 app.get("/", (c) => {
-  c.header("Cache-Control", "public, max-age=300, stale-while-revalidate=3600");
+  c.header("Cache-Control", "private, no-cache");
   return c.html(
     websiteHtml({
       publicUrl: config.publicUrl,
@@ -176,7 +226,7 @@ app.get("/sitemap.xml", (c) => {
 });
 
 app.get("/docs", (c) => {
-  c.header("Cache-Control", "public, max-age=300, stale-while-revalidate=3600");
+  c.header("Cache-Control", "private, no-cache");
   return c.html(documentationHtml({ publicUrl: config.publicUrl })!);
 });
 
@@ -188,7 +238,10 @@ app.get("/docs/:document", (c) => {
     ? publicDocMarkdown(slug)
     : documentationHtml({ publicUrl: config.publicUrl, slug });
   if (!content) return c.json({ error: "doc_not_found", message: "Documentation page not found" }, 404);
-  c.header("Cache-Control", "public, max-age=300, stale-while-revalidate=3600");
+  c.header(
+    "Cache-Control",
+    wantsMarkdown ? "public, max-age=300, stale-while-revalidate=3600" : "private, no-cache",
+  );
   return wantsMarkdown
     ? c.text(content, 200, { "Content-Type": "text/markdown; charset=utf-8" })
     : c.html(content);
@@ -214,6 +267,7 @@ app.get("/api", (c) =>
       protect: "POST /v1/projects/:id/routes",
       proxy: "ANY /p/:projectSlug/*",
       demo: "GET /demo/v1/fortune",
+      metrics: "GET /v1/admin/metrics?days=30",
       agentSkill: "GET /skill.md",
     },
   }),
@@ -299,6 +353,12 @@ app.post(
       );
     }
     const { account, apiKey } = createAccount(body.email);
+    trackUsage(c, {
+      eventType: "signup",
+      accountId: account.id,
+      route: "/v1/auth/signup",
+      statusCode: 201,
+    });
     return c.json(
       {
         id: account.id,
@@ -326,6 +386,14 @@ app.post("/v1/auth/rotate-key", requireAuth, (c) => {
   });
 });
 
+app.get("/v1/admin/metrics", requireAuth, (c) => {
+  if (c.get("email") !== "owner@loopfare.local") {
+    throw new HTTPException(403, { message: "Owner access is required" });
+  }
+  const days = parseMetricsDays(c.req.query("days"));
+  return c.json(getUsageMetrics(days));
+});
+
 // ── Projects and protected routes ────────────────────────────────
 
 const projectSchema = z.object({
@@ -347,6 +415,13 @@ app.post("/v1/projects", requireAuth, async (c) => {
       name: body.name,
       slug: body.slug,
       payTo: body.payTo,
+    });
+    trackUsage(c, {
+      eventType: "project_created",
+      accountId: c.get("accountId"),
+      projectId: project.id,
+      route: "/v1/projects",
+      statusCode: 201,
     });
     return c.json({ ...project, proxyBase: `${config.publicUrl}/p/${project.slug}` }, 201);
   } catch (error) {
@@ -408,6 +483,13 @@ app.post("/v1/projects/:id/routes", requireAuth, async (c) => {
     price: body.price,
     description: body.description,
     methods: body.methods,
+  });
+  trackUsage(c, {
+    eventType: "route_created",
+    accountId: c.get("accountId"),
+    projectId: project.id,
+    route: "/v1/projects/:id/routes",
+    statusCode: 201,
   });
   return c.json(
     {
@@ -474,6 +556,12 @@ app.post("/v1/buyer/budget", async (c) => {
   const token = requireBudgetToken(c);
   const budget = setBudget(body.walletAddress, body.dailyLimitUsd, token);
   if (!budget) throw new HTTPException(403, { message: "Invalid budget token" });
+  trackUsage(c, {
+    eventType: "wallet_configured",
+    route: "/v1/buyer/budget",
+    statusCode: 200,
+    walletAddress: body.walletAddress,
+  });
   return c.json({ budget: publicBudget(budget) });
 });
 
@@ -500,10 +588,19 @@ app.use("/demo/v1/fortune", async (c, next) => {
       503,
     );
   }
-  if (
+  const wallet = c.req.header("X-Loopfare-Wallet");
+  const devAuthorized =
     config.devMode &&
-    isDevPaymentAuthorized(c.req.header("LOOPFARE-DEV-PAYMENT"), config.demoPrice)
-  ) {
+    isDevPaymentAuthorized(c.req.header("LOOPFARE-DEV-PAYMENT"), config.demoPrice);
+  const hasPaymentSignature = Boolean(c.req.header("PAYMENT-SIGNATURE"));
+  trackUsage(c, {
+    eventType: devAuthorized || hasPaymentSignature ? "payment_attempted" : "payment_challenge",
+    route: "/demo/v1/fortune",
+    walletAddress: wallet,
+    amountUsd: priceToUsd(config.demoPrice),
+  });
+
+  if (devAuthorized) {
     recordPayment({
       method: c.req.method,
       path: c.req.path,
@@ -511,9 +608,17 @@ app.use("/demo/v1/fortune", async (c, next) => {
       status: "dev_settled",
       buyerHint: "dev-mode",
     });
+    trackUsage(c, {
+      eventType: "payment_settled",
+      route: "/demo/v1/fortune",
+      statusCode: 200,
+      walletAddress: wallet,
+      amountUsd: priceToUsd(config.demoPrice),
+      metadata: { mode: "dev" },
+    });
     return next();
   }
-  if (!config.devMode || c.req.header("PAYMENT-SIGNATURE")) {
+  if (!config.devMode || hasPaymentSignature) {
     const result = await buildDemoPaymentMiddleware()(c, next);
     const response = result instanceof Response ? result : c.res;
     if (response.status < 400 && response.headers.has("PAYMENT-RESPONSE")) {
@@ -524,6 +629,14 @@ app.use("/demo/v1/fortune", async (c, next) => {
         status: "settled",
         txHash: settlementTransactionHash(response.headers.get("PAYMENT-RESPONSE")),
         buyerHint: c.req.header("X-Loopfare-Wallet") ?? null,
+      });
+      trackUsage(c, {
+        eventType: "payment_settled",
+        route: "/demo/v1/fortune",
+        statusCode: response.status,
+        walletAddress: wallet,
+        amountUsd: priceToUsd(config.demoPrice),
+        metadata: { mode: "x402" },
       });
     }
     return result;
@@ -591,6 +704,24 @@ async function handlePaidProxy(c: Context<AuthEnv>) {
   const wallet = c.req.header("X-Loopfare-Wallet");
   const budgetToken = c.req.header("X-Loopfare-Budget-Token");
   const amountUsd = priceToUsd(route.price);
+  const devAuthorized =
+    config.devMode &&
+    isDevPaymentAuthorized(c.req.header("LOOPFARE-DEV-PAYMENT"), route.price);
+  const hasPaymentSignature = Boolean(c.req.header("PAYMENT-SIGNATURE"));
+  trackUsage(c, {
+    eventType: "proxy_request",
+    route: c.req.path,
+    projectId: route.project_id,
+    walletAddress: wallet,
+    amountUsd,
+  });
+  trackUsage(c, {
+    eventType: devAuthorized || hasPaymentSignature ? "payment_attempted" : "payment_challenge",
+    route: c.req.path,
+    projectId: route.project_id,
+    walletAddress: wallet,
+    amountUsd,
+  });
   if (budgetToken && !wallet) {
     return c.json({ error: "wallet_required", message: "Budget token requires a wallet header" }, 400);
   }
@@ -608,10 +739,7 @@ async function handlePaidProxy(c: Context<AuthEnv>) {
     }
   }
 
-  if (
-    config.devMode &&
-    isDevPaymentAuthorized(c.req.header("LOOPFARE-DEV-PAYMENT"), route.price)
-  ) {
+  if (devAuthorized) {
     let budgetReserved = false;
     if (wallet && budgetToken) {
       const reservation = trySpendBudget(wallet, budgetToken, amountUsd);
@@ -634,6 +762,15 @@ async function handlePaidProxy(c: Context<AuthEnv>) {
         price: route.price,
         status: "dev_settled",
         buyerHint: wallet ?? "dev-mode",
+      });
+      trackUsage(c, {
+        eventType: "payment_settled",
+        route: c.req.path,
+        statusCode: response.status,
+        projectId: route.project_id,
+        walletAddress: wallet,
+        amountUsd,
+        metadata: { mode: "dev" },
       });
     } else if (budgetReserved) {
       refundBudgetSpend(wallet!, budgetToken!, amountUsd);
@@ -697,6 +834,15 @@ async function handlePaidProxy(c: Context<AuthEnv>) {
     txHash: settlementTransactionHash(settledResponse.headers.get("PAYMENT-RESPONSE")),
     buyerHint: wallet ?? null,
   });
+  trackUsage(c, {
+    eventType: "payment_settled",
+    route: c.req.path,
+    statusCode: settledResponse.status,
+    projectId: route.project_id,
+    walletAddress: wallet,
+    amountUsd,
+    metadata: { mode: "x402" },
+  });
   return settledResponse;
 }
 
@@ -745,6 +891,51 @@ app.onError((error, c) => {
     500,
   );
 });
+
+function trackUsage(
+  c: Context<AuthEnv>,
+  input: UsageEventInput & { walletAddress?: string },
+) {
+  const usage = c.get("usage");
+  if (usage.excluded) return;
+  const { walletAddress, ...event } = input;
+  try {
+    recordUsageEvent({
+      requestId: usage.requestId,
+      sessionId: usage.sessionId,
+      networkHash: usage.networkHash,
+      walletHash: walletAddress
+        ? hashUsageIdentifier("wallet", walletAddress.toLowerCase())
+        : usage.walletHash,
+      userAgentCategory: usage.userAgentCategory,
+      referrer: usage.referrer,
+      isBot: usage.isBot,
+      ...event,
+    });
+  } catch (error) {
+    console.warn(
+      JSON.stringify({
+        level: "warn",
+        message: "usage_tracking_failed",
+        requestId: usage.requestId,
+        error: errorMessage(error),
+      }),
+    );
+  }
+}
+
+function isPublicPageView(c: Context<AuthEnv>) {
+  if (c.req.method !== "GET") return false;
+  const isPublicPage =
+    c.req.path === "/" || c.req.path === "/docs" || c.req.path.startsWith("/docs/");
+  return isPublicPage && Boolean(c.res.headers.get("content-type")?.includes("text/html"));
+}
+
+function errorStatus(error: unknown) {
+  if (error instanceof HTTPException) return error.status;
+  if (error instanceof z.ZodError || error instanceof SyntaxError) return 400;
+  return 500;
+}
 
 function getOwnedProject(accountId: string, projectId: string) {
   const project = getProjectById(projectId);
@@ -920,6 +1111,17 @@ function parseLimit(value?: string) {
   const parsed = Number(value);
   if (!Number.isInteger(parsed) || parsed < 1 || parsed > 100) {
     throw new HTTPException(400, { message: "limit must be an integer from 1 to 100" });
+  }
+  return parsed;
+}
+
+function parseMetricsDays(value?: string) {
+  if (!value) return 30;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > config.usageRetentionDays) {
+    throw new HTTPException(400, {
+      message: `days must be an integer from 1 to ${config.usageRetentionDays}`,
+    });
   }
   return parsed;
 }

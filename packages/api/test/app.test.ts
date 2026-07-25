@@ -15,6 +15,7 @@ const { app } = await import("../src/app.js");
 const db = await import("../src/db.js");
 const originSecurity = await import("../src/origin-security.js");
 const docsSite = await import("../src/docs-site.js");
+const usage = await import("../src/usage.js");
 const x402 = await import("../src/x402.js");
 
 after(() => {
@@ -37,10 +38,14 @@ async function signup(email: string) {
 }
 
 test("serves the marketing site with security headers", async () => {
-  const response = await app.request("/");
+  const response = await app.request("/", {
+    headers: { "User-Agent": "Mozilla/5.0 Firefox/140.0" },
+  });
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /text\/html/);
   assert.match(response.headers.get("content-security-policy") ?? "", /default-src 'self'/);
+  assert.match(response.headers.get("set-cookie") ?? "", /^lf_session=/);
+  assert.equal(response.headers.get("cache-control"), "private, no-cache");
   assert.match(await response.text(), /Make every API call pay its fare/);
 });
 
@@ -257,4 +262,117 @@ test("routes a project base URL through the paid proxy handler", async () => {
   const response = await app.request("/p/missing-project");
   assert.equal(response.status, 404);
   assert.equal((await json(response)).error, "route_not_found");
+});
+
+test("tracks first-party usage without counting bots or health checks", async () => {
+  const before = usage.getUsageMetrics(1);
+  const visitorIp = "203.0.113.42";
+  const first = await app.request("/", {
+    headers: {
+      "User-Agent": "Mozilla/5.0 Firefox/140.0",
+      "X-Forwarded-For": visitorIp,
+      Referer: "https://example.com/campaign?secret=do-not-store",
+    },
+  });
+  const cookie = first.headers.get("set-cookie")?.split(";", 1)[0];
+  assert.match(cookie ?? "", /^lf_session=/);
+
+  const second = await app.request("/docs", {
+    headers: {
+      Cookie: cookie!,
+      "User-Agent": "Mozilla/5.0 Firefox/140.0",
+      "X-Forwarded-For": visitorIp,
+    },
+  });
+  assert.equal(second.status, 200);
+
+  const afterVisitor = usage.getUsageMetrics(1);
+  assert.equal(
+    afterVisitor.summary.uniqueVisitors,
+    before.summary.uniqueVisitors + 1,
+  );
+
+  const beforeBot = afterVisitor.dataQuality.botsFiltered;
+  await app.request("/", {
+    headers: { "User-Agent": "Googlebot/2.1" },
+  });
+  const afterBot = usage.getUsageMetrics(1);
+  assert.equal(afterBot.summary.uniqueVisitors, afterVisitor.summary.uniqueVisitors);
+  assert.equal(afterBot.dataQuality.botsFiltered, beforeBot + 1);
+
+  const beforeHealthRequests = afterBot.summary.requestCount;
+  await app.request("/health/ready");
+  assert.equal(usage.getUsageMetrics(1).summary.requestCount, beforeHealthRequests);
+
+  const wallet = "0x5555555555555555555555555555555555555555";
+  const walletHash = usage.hashUsageIdentifier("wallet", wallet);
+  assert.notEqual(walletHash, wallet);
+  assert.equal(walletHash, usage.hashUsageIdentifier("wallet", wallet));
+  assert.equal(
+    usage.sanitizeReferrer("https://example.com/campaign?secret=do-not-store"),
+    "https://example.com/campaign",
+  );
+  assert.equal(
+    usage.normalizeUsageRoute(`/v1/buyer/budget/${wallet}`),
+    "/v1/buyer/budget/:wallet",
+  );
+  const malformedCookie = await app.request("/", {
+    headers: {
+      Cookie: "lf_session=%ZZ",
+      "User-Agent": "Mozilla/5.0 Firefox/140.0",
+    },
+  });
+  assert.equal(malformedCookie.status, 200);
+  assert.match(malformedCookie.headers.get("set-cookie") ?? "", /^lf_session=/);
+
+  const returningSession = usage.hashUsageIdentifier("session", "returning-test-session");
+  const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1_000).toISOString();
+  usage.recordUsageEvent({
+    eventType: "page_view",
+    occurredAt: yesterday,
+    route: "/",
+    sessionId: returningSession,
+    userAgentCategory: "desktop_browser",
+  });
+  usage.recordUsageEvent({
+    eventType: "page_view",
+    route: "/",
+    sessionId: returningSession,
+    userAgentCategory: "desktop_browser",
+  });
+  assert.ok(usage.getUsageMetrics(1).summary.returningVisitors >= 1);
+});
+
+test("exposes owner-only aggregate metrics and funnel data", async () => {
+  const normal = db.createAccount("metrics-reader@example.com");
+  const denied = await app.request("/v1/admin/metrics", {
+    headers: { Authorization: `Bearer ${normal.apiKey}` },
+  });
+  assert.equal(denied.status, 403);
+
+  const owner = db.createAccount(
+    "owner@loopfare.local",
+    "lf_owner_metrics_test_key_1234567890",
+  );
+  const response = await app.request("/v1/admin/metrics?days=30", {
+    headers: { Authorization: `Bearer ${owner.apiKey}` },
+  });
+  assert.equal(response.status, 200);
+  const metrics = await json(response);
+  assert.equal(metrics.window.days, 30);
+  assert.ok(metrics.summary.requestCount > 0);
+  assert.ok(metrics.summary.signups > 0);
+  assert.ok(metrics.summary.paymentsSettled > 0);
+  assert.ok(metrics.summary.devPaymentsSettled > 0);
+  assert.ok(metrics.summary.demoPaymentsSettled > 0);
+  assert.ok(Array.isArray(metrics.daily));
+  assert.ok(Array.isArray(metrics.topRoutes));
+  assert.equal(metrics.dataQuality.rawIpAddressesStored, false);
+  assert.equal(metrics.dataQuality.rawUserAgentsStored, false);
+  assert.equal(metrics.dataQuality.healthAndAssetRequestsExcluded, true);
+
+  const invalid = await app.request("/v1/admin/metrics?days=0", {
+    headers: { Authorization: `Bearer ${owner.apiKey}` },
+  });
+  assert.equal(invalid.status, 400);
 });

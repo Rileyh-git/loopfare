@@ -56,7 +56,8 @@ export type BuyerBudget = {
   updated_at: string;
 };
 
-const db = new Database(config.databasePath);
+const db: Database.Database = new Database(config.databasePath);
+export { db as database };
 db.pragma("journal_mode = WAL");
 db.pragma("foreign_keys = ON");
 db.pragma("busy_timeout = 5000");

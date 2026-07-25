@@ -89,6 +89,16 @@ Key rotation invalidates the old key immediately. There is no password login, em
 
 `ADMIN_API_KEY` may bootstrap `owner@loopfare.local` on an empty database. After that account exists, changing the environment variable does not rotate its stored key.
 
+The bootstrap owner is the only account allowed to read `GET /v1/admin/metrics`. Usage analytics never grant seller or buyer authority and are excluded from public service metadata beyond the endpoint hint.
+
+### Usage analytics privacy
+
+Browser visitors receive an opaque, first-party `lf_session` cookie with `HttpOnly`, `SameSite=Lax`, a one-year maximum age, and `Secure` on HTTPS deployments. CLI, agent, bot, and generic API-client requests do not create analytics cookies. Only an HMAC-SHA256 digest of the cookie value is stored. Network and wallet identifiers in usage events are HMAC-protected with a random secret generated into the persistent database.
+
+The usage store does not retain raw IP addresses, complete user-agent strings, or referrer query strings. It stores a coarse client category and a referrer origin plus path. Health probes, the metrics endpoint, and static browser assets are excluded. Recognized bots are tagged and excluded from product aggregates. Raw usage events are deleted after `USAGE_RETENTION_DAYS`; daily aggregate rows remain available for trend reporting.
+
+Transactional tables remain separate from analytics. In particular, payment records can contain the buyer wallet hint supplied by a compatible client because that value is part of the seller-facing payment history.
+
 ### Buyer budget tokens
 
 Budget endpoints accept a separate high-entropy token through `X-Loopfare-Budget-Token` or Bearer authorization. Its SHA-256 digest is stored. The first token used for a wallet claims that budget record; another token cannot replace it through the current API.

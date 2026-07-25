@@ -75,6 +75,8 @@ Loopfare reads `.env` from the current working directory or repository root, the
 | `ALLOW_PRIVATE_ORIGINS` | `false` | Required: `false` unless the instance is isolated and intentionally proxies an internal network. |
 | `SIGNUP_ENABLED` | `true` | Set `false` to close new seller registration during an incident or controlled beta. Existing accounts still work. |
 | `ADMIN_API_KEY` | Unset | Optional high-entropy bootstrap key of at least 24 characters. Prefer normal signup and rotation. |
+| `USAGE_TRACKING_ENABLED` | `true` | Enables first-party usage events, anonymous sessions, daily aggregates, and the owner metrics endpoint. |
+| `USAGE_RETENTION_DAYS` | `365` | Raw usage-event retention from 30 to 3,650 days. Daily aggregate rows are retained. |
 | `CORS_ORIGINS` | `PUBLIC_URL` origin | Comma-separated exact browser origins. CORS is not an authentication mechanism. |
 | `PROXY_TIMEOUT_MS` | `30000` | Upstream timeout, from 1,000 to 120,000 milliseconds. |
 | `MAX_REQUEST_BODY_BYTES` | `1048576` | Maximum `/v1/*` and `/p/*` request body size, from 1 KiB to 10 MiB. |

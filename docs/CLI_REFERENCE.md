@@ -149,7 +149,7 @@ Options:
 | --- | --- | --- |
 | `--email <email>` | Yes | Valid seller email, at most 254 characters. |
 
-Creates an account, saves the returned API key and email, and prints the key. The key is shown once by the API. Signup is limited to five attempts per hour per client identifier and may be disabled by the operator.
+Creates an account, saves the returned API key and email, and presents a branded first-run screen with the account ID, config location, and next commands. Normal terminal output confirms that the key was saved without revealing the secret. Use `--json` when automation needs to capture the one-time API key response. Signup is limited to five attempts per hour per client identifier and may be disabled by the operator.
 
 ## `login`
 

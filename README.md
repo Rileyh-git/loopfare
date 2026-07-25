@@ -146,6 +146,7 @@ Public endpoints:
 - `GET /health`, `/health/live`, `/health/ready` — health checks
 - `GET /skill.md` — agent instructions
 - `POST /v1/auth/signup` — seller signup
+- `GET /v1/admin/metrics?days=30` — owner-only usage, funnel, route, and revenue metrics
 - `POST|GET /v1/buyer/budget` — token-protected buyer budget
 - `GET /demo/v1/fortune` — x402 demo
 - `ANY /p/:projectSlug/*` — paid reverse proxy

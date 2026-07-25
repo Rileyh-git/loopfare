@@ -5,6 +5,7 @@ import { wrapFetchWithPayment, x402HTTPClient } from "@x402/fetch";
 import { x402Client } from "@x402/core/client";
 import { ExactEvmScheme } from "@x402/evm/exact/client";
 import { api } from "./api.js";
+import { printSignupWelcome } from "./brand.js";
 import { runDoctor } from "./doctor.js";
 import {
   configPath,
@@ -113,16 +114,21 @@ program
         body: JSON.stringify({ email: opts.email }),
       });
       saveConfig({ apiKey: res.apiKey, email: res.email });
-      print(
-        {
-          id: res.id,
-          email: res.email,
-          apiKey: res.apiKey,
-          storedAt: configPath(),
-          message: "API key saved to ~/.loopfare/config.json",
-        },
-        j,
-      );
+      const result = {
+        id: res.id,
+        email: res.email,
+        apiKey: res.apiKey,
+        storedAt: configPath(),
+        message: "API key saved to ~/.loopfare/config.json",
+      };
+      if (j) print(result, true);
+      else {
+        printSignupWelcome({
+          accountId: result.id,
+          email: result.email,
+          storedAt: result.storedAt,
+        });
+      }
     } catch (err) {
       fail(err, j);
     }

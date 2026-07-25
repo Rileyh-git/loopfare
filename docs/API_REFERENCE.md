@@ -221,7 +221,7 @@ Returns the public product website as HTML.
 
 - Authentication: none
 - Success: `200 text/html`
-- Cache: `public, max-age=300, stale-while-revalidate=3600`
+- Cache: `private, no-cache` so first-party page-view tracking is not bypassed by a shared cache
 
 ### `GET /favicon.svg`
 
@@ -278,6 +278,7 @@ curl https://YOUR_LOOPFARE_HOST/api
     "protect": "POST /v1/projects/:id/routes",
     "proxy": "ANY /p/:projectSlug/*",
     "demo": "GET /demo/v1/fortune",
+    "metrics": "GET /v1/admin/metrics?days=30",
     "agentSkill": "GET /skill.md"
   }
 }
@@ -337,7 +338,7 @@ Returns the public documentation index as HTML.
 
 - Authentication: none
 - Success: `200 text/html`
-- Cache: `public, max-age=300, stale-while-revalidate=3600`
+- Cache: `private, no-cache` so first-party page-view tracking is not bypassed by a shared cache
 
 ### `GET /docs/:slug`
 
@@ -345,7 +346,7 @@ Returns a registered public documentation page rendered as HTML. Current slugs a
 
 - Authentication: none
 - Success: `200 text/html`
-- Cache: `public, max-age=300, stale-while-revalidate=3600`
+- Cache: `private, no-cache` so first-party page-view tracking is not bypassed by a shared cache
 - Missing slug: `404` JSON `{ "error": "doc_not_found", "message": "Documentation page not found" }`
 
 ### `GET /docs/:slug.md`
@@ -354,7 +355,7 @@ Returns the source Markdown for a registered public documentation page.
 
 - Authentication: none
 - Success: `200 text/markdown`
-- Cache: `public, max-age=300, stale-while-revalidate=3600`
+- Cache: `public, max-age=300, stale-while-revalidate=3600`; raw Markdown requests do not create analytics sessions
 - Missing slug: `404 doc_not_found`
 
 ## Seller authentication
@@ -447,6 +448,36 @@ Success: `200`
 ```
 
 Errors: `401 unauthorized` for missing or invalid seller authentication.
+
+## Owner usage metrics
+
+### `GET /v1/admin/metrics`
+
+Returns first-party product usage and conversion metrics. Authentication must resolve to the bootstrap `owner@loopfare.local` account; ordinary seller keys receive `403 forbidden`.
+
+```bash
+curl 'https://YOUR_LOOPFARE_HOST/v1/admin/metrics?days=30' \
+  -H 'Authorization: Bearer lf_OWNER_API_KEY'
+```
+
+| Query | Default | Validation |
+| --- | --- | --- |
+| `days` | `30` | Integer from 1 through `USAGE_RETENTION_DAYS` |
+
+Success: `200`. The response contains:
+
+- `window`: UTC range and number of days;
+- `summary`: requests, visitors, returning visitors, signups, projects, wallets, payment activity split by x402/dev and demo/proxy usage, proxy traffic, revenue, and errors;
+- `funnel`: visitor-to-signup and payment-attempt-to-settlement conversion;
+- `lifetime`: account, project, route, wallet, payment, and revenue totals from transactional tables;
+- `daily`: pre-aggregated daily trends;
+- `topRoutes`: request count, errors, average duration, and visitors by normalized path;
+- `clients`: coarse agent, CLI, browser, and API-client categories;
+- `dataQuality`: bot filtering and privacy/retention details.
+
+Health checks, metrics requests, and browser assets are excluded. Recognized bots are excluded from product totals. Usage identifiers are HMAC-protected; raw IPs, full user agents, and referrer query strings are not stored.
+
+Errors: `400 bad_request`, `401 unauthorized`, or `403 forbidden`.
 
 ## Projects
 
