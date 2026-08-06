@@ -1,6 +1,9 @@
 name: Publish CLI
 
 on:
+  # Manual fallback for credentials that do not emit push workflow events.
+  # The release job still requires a v* ref whose version matches package.json.
+  workflow_dispatch:
   push:
     tags:
       - "v*"
