@@ -1,6 +1,6 @@
 # Loopfare CLI reference
 
-This is the complete command reference for Loopfare CLI 0.2.6. The CLI combines seller administration with a local x402 buyer wallet.
+This is the complete command reference for Loopfare CLI 0.2.7. The CLI combines seller administration with a local x402 buyer wallet.
 
 ## Install
 
@@ -64,6 +64,8 @@ Environment precedence:
 | --- | --- |
 | `LOOPFARE_API_URL` | Stored `apiUrl`; default is `https://api-production-dd0a0.up.railway.app`. |
 | `LOOPFARE_API_KEY` | Stored seller `apiKey`. |
+| `LOOPFARE_METRICS_API_KEY` | Dedicated read-only metrics credential. |
+| `METRICS_API_KEY` | Fallback metrics credential, convenient when run through a hosting platform. |
 | `EVM_PRIVATE_KEY` | Stored buyer private key; highest private-key precedence. |
 | `LOOPFARE_PRIVATE_KEY` | Stored buyer private key when `EVM_PRIVATE_KEY` is unset. |
 | `LOOPFARE_DEV_PAYMENT=1` | Makes `call` use development-payment mode. |
@@ -77,6 +79,7 @@ There are no environment overrides for the budget token, daily limit, or local s
 | `config` | Show redacted local configuration. |
 | `set-api <url>` | Save the Loopfare API base URL. |
 | `doctor` | Check runtime, API, wallet, budget, and configuration readiness. |
+| `metrics --days <days>` | Show read-only owner usage metrics. |
 | `signup --email <email>` | Create a seller account and save its API key. |
 | `login --api-key <key>` | Save an existing seller key. |
 | `whoami` | Validate the seller key and show account identity. |
@@ -88,6 +91,18 @@ There are no environment overrides for the budget token, daily limit, or local s
 | `wallet create/show/import` | Manage the local buyer wallet. |
 | `budget set/show` | Manage the buyer daily budget. |
 | `call <url>` | Make an x402-aware HTTP request. |
+
+## `metrics`
+
+```text
+loopfare metrics [--days <days>]
+```
+
+Fetches first-party aggregate usage data with `LOOPFARE_METRICS_API_KEY` or `METRICS_API_KEY`. The default window is 30 days; valid values are 1 through 3,650, subject to the server retention limit. The credential is read from the environment, never stored in the CLI configuration, and never printed.
+
+```bash
+railway run --service api -- loopfare --json metrics --days 30
+```
 
 ## `config`
 

@@ -10,6 +10,7 @@ process.env.DATABASE_PATH = join(testDirectory, "loopfare.db");
 process.env.LOOPFARE_DEV_MODE = "true";
 process.env.ALLOW_PRIVATE_ORIGINS = "false";
 process.env.PUBLIC_URL = "http://localhost:4021";
+process.env.METRICS_API_KEY = "lm_test_metrics_read_only_key_1234567890";
 
 const { app } = await import("../src/app.js");
 const db = await import("../src/db.js");
@@ -81,12 +82,12 @@ test("reports liveness and database readiness", async () => {
   assert.equal(metadata.status, 200);
   const service = await json(metadata);
   assert.equal(service.name, "loopfare");
-  assert.equal(service.version, "0.2.6");
+  assert.equal(service.version, "0.2.7");
   assert.equal(service.network, "base-sepolia");
   assert.equal(health.status, 200);
   const healthReport = await json(health);
   assert.equal(healthReport.ok, true);
-  assert.equal(healthReport.version, "0.2.6");
+  assert.equal(healthReport.version, "0.2.7");
   assert.equal(ready.status, 200);
 });
 
@@ -349,6 +350,20 @@ test("exposes owner-only aggregate metrics and funnel data", async () => {
     headers: { Authorization: `Bearer ${normal.apiKey}` },
   });
   assert.equal(denied.status, 403);
+
+  const missing = await app.request("/v1/admin/metrics");
+  assert.equal(missing.status, 401);
+
+  const dedicated = await app.request("/v1/admin/metrics?days=7", {
+    headers: { Authorization: `Bearer ${process.env.METRICS_API_KEY}` },
+  });
+  assert.equal(dedicated.status, 200);
+  assert.equal((await json(dedicated)).window.days, 7);
+
+  const cannotActAsSeller = await app.request("/v1/auth/me", {
+    headers: { Authorization: `Bearer ${process.env.METRICS_API_KEY}` },
+  });
+  assert.equal(cannotActAsSeller.status, 401);
 
   const owner = db.createAccount(
     "owner@loopfare.local",

@@ -75,6 +75,7 @@ Loopfare reads `.env` from the current working directory or repository root, the
 | `ALLOW_PRIVATE_ORIGINS` | `false` | Required: `false` unless the instance is isolated and intentionally proxies an internal network. |
 | `SIGNUP_ENABLED` | `true` | Set `false` to close new seller registration during an incident or controlled beta. Existing accounts still work. |
 | `ADMIN_API_KEY` | Unset | Optional high-entropy bootstrap key of at least 24 characters. Prefer normal signup and rotation. |
+| `METRICS_API_KEY` | Unset | Dedicated read-only metrics key of at least 32 characters. Generate independently from seller and wallet credentials. |
 | `USAGE_TRACKING_ENABLED` | `true` | Enables first-party usage events, anonymous sessions, daily aggregates, and the owner metrics endpoint. |
 | `USAGE_RETENTION_DAYS` | `365` | Raw usage-event retention from 30 to 3,650 days. Daily aggregate rows are retained. |
 | `CORS_ORIGINS` | `PUBLIC_URL` origin | Comma-separated exact browser origins. CORS is not an authentication mechanism. |

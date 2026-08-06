@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { Hono } from "hono";
 import type { Context, MiddlewareHandler } from "hono";
 import { bodyLimit } from "hono/body-limit";
@@ -250,7 +250,7 @@ app.get("/docs/:document", (c) => {
 app.get("/api", (c) =>
   c.json({
     name: "loopfare",
-    version: "0.2.6",
+    version: "0.2.7",
     tagline: "Make every API call pay its fare",
     network: config.network,
     networkCaip2: config.networkCaip2,
@@ -277,7 +277,7 @@ app.get("/health", (c) =>
   c.json({
     ok: databaseReady(),
     service: "loopfare",
-    version: "0.2.6",
+    version: "0.2.7",
     network: config.network,
     demoEnabled: config.demoEnabled,
     timestamp: new Date().toISOString(),
@@ -329,6 +329,30 @@ const requireAuth: MiddlewareHandler<AuthEnv> = async (c, next) => {
   if (!account) throw new HTTPException(401, { message: "Invalid API key" });
   c.set("accountId", account.id);
   c.set("email", account.email);
+  await next();
+};
+
+function securelyMatchesToken(candidate: string, expected: string): boolean {
+  const candidateDigest = createHash("sha256").update(candidate).digest();
+  const expectedDigest = createHash("sha256").update(expected).digest();
+  return timingSafeEqual(candidateDigest, expectedDigest);
+}
+
+const requireMetricsAuth: MiddlewareHandler<AuthEnv> = async (c, next) => {
+  const header = c.req.header("Authorization") ?? "";
+  const key = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
+  if (!key) throw new HTTPException(401, { message: "Missing Bearer metrics key" });
+
+  if (config.metricsApiKey && securelyMatchesToken(key, config.metricsApiKey)) {
+    await next();
+    return;
+  }
+
+  const account = getAccountByApiKey(key);
+  if (!account) throw new HTTPException(401, { message: "Invalid metrics key" });
+  if (account.email !== "owner@loopfare.local") {
+    throw new HTTPException(403, { message: "Owner access is required" });
+  }
   await next();
 };
 
@@ -386,10 +410,7 @@ app.post("/v1/auth/rotate-key", requireAuth, (c) => {
   });
 });
 
-app.get("/v1/admin/metrics", requireAuth, (c) => {
-  if (c.get("email") !== "owner@loopfare.local") {
-    throw new HTTPException(403, { message: "Owner access is required" });
-  }
+app.get("/v1/admin/metrics", requireMetricsAuth, (c) => {
   const days = parseMetricsDays(c.req.query("days"));
   return c.json(getUsageMetrics(days));
 });

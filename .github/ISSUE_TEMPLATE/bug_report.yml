@@ -26,7 +26,7 @@ body:
     attributes:
       label: Version
       description: Use `loopfare --version`, `GET /api`, or the commit SHA.
-      placeholder: 0.2.6
+      placeholder: 0.2.7
     validations:
       required: true
   - type: input

@@ -2,6 +2,14 @@
 
 Loopfare follows semantic versioning for application releases. During the `0.x` beta, minor releases may include API or operational changes that require explicit upgrade review.
 
+## 0.2.7 — read-only metrics access
+
+- Add an independently rotatable `METRICS_API_KEY` accepted only by the aggregate usage endpoint.
+- Add `loopfare metrics --days 30` for retrieving first-party usage without database or SSH access.
+- Keep the bootstrap owner seller key compatible while preventing the metrics credential from acting as a seller or buyer.
+- Document the one-command Railway workflow and credential boundary.
+- Update patched HTTP and URI dependencies to keep the production audit gate clear.
+
 ## 0.2.6 — first-party insights and CLI welcome
 
 - Add privacy-conscious first-party usage collection with owner-only aggregate metrics, funnel reporting, daily rollups, bot filtering, and configurable retention.

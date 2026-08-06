@@ -1,6 +1,6 @@
 # Security model
 
-This document describes the security properties and trust boundaries of Loopfare 0.2.6. It is a design description, not a security certification. Review it before exposing an instance to untrusted sellers, buyers, or origins.
+This document describes the security properties and trust boundaries of Loopfare 0.2.7. It is a design description, not a security certification. Review it before exposing an instance to untrusted sellers, buyers, or origins.
 
 Security reports should follow [the repository security policy](../SECURITY.md).
 
@@ -89,7 +89,7 @@ Key rotation invalidates the old key immediately. There is no password login, em
 
 `ADMIN_API_KEY` may bootstrap `owner@loopfare.local` on an empty database. After that account exists, changing the environment variable does not rotate its stored key.
 
-The bootstrap owner is the only account allowed to read `GET /v1/admin/metrics`. Usage analytics never grant seller or buyer authority and are excluded from public service metadata beyond the endpoint hint.
+`METRICS_API_KEY` grants read-only access to `GET /v1/admin/metrics` and is compared in constant time. It is not an account credential and cannot access seller, buyer, wallet, project, route, budget, or payment-management endpoints. Generate and rotate it independently. The bootstrap owner seller key remains accepted for compatibility. Usage analytics never grant seller or buyer authority and are excluded from public service metadata beyond the endpoint hint.
 
 ### Usage analytics privacy
 

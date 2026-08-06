@@ -55,6 +55,7 @@ const envSchema = z.object({
     .transform((value) => value === "true"),
   ALLOW_PRIVATE_ORIGINS: booleanFromEnv,
   ADMIN_API_KEY: z.string().min(24).optional(),
+  METRICS_API_KEY: z.string().min(32).optional(),
   USAGE_TRACKING_ENABLED: z
     .enum(["true", "false"])
     .default("true")
@@ -121,6 +122,7 @@ export const config = {
   signupEnabled: env.SIGNUP_ENABLED,
   allowPrivateOrigins: env.ALLOW_PRIVATE_ORIGINS,
   adminApiKey: env.ADMIN_API_KEY,
+  metricsApiKey: env.METRICS_API_KEY,
   usageTrackingEnabled: env.USAGE_TRACKING_ENABLED,
   usageRetentionDays: env.USAGE_RETENTION_DAYS,
   corsOrigins: configuredOrigins.length > 0 ? configuredOrigins : [new URL(publicUrl).origin],

@@ -1,6 +1,6 @@
 # Loopfare API reference
 
-This reference documents the public HTTP contract for Loopfare `0.2.6` as implemented in this repository. Loopfare combines a seller management API, a buyer budget API, an x402 v2 paid reverse proxy, public service metadata, and a paid demo.
+This reference documents the public HTTP contract for Loopfare `0.2.7` as implemented in this repository. Loopfare combines a seller management API, a buyer budget API, an x402 v2 paid reverse proxy, public service metadata, and a paid demo.
 
 ## Base URL and versioning
 
@@ -14,7 +14,7 @@ Seller and buyer management endpoints are under `/v1`. The paid proxy and public
 
 | Property | Value |
 | --- | --- |
-| Loopfare application version | `0.2.6` |
+| Loopfare application version | `0.2.7` |
 | Management API version | `v1` |
 | Payment protocol | x402 v2 |
 | Payment scheme | `exact` on EVM |
@@ -263,7 +263,7 @@ curl https://YOUR_LOOPFARE_HOST/api
 ```json
 {
   "name": "loopfare",
-  "version": "0.2.6",
+  "version": "0.2.7",
   "tagline": "Make every API call pay its fare",
   "network": "base-sepolia",
   "networkCaip2": "eip155:84532",
@@ -295,7 +295,7 @@ Returns an expanded health snapshot.
 {
   "ok": true,
   "service": "loopfare",
-  "version": "0.2.6",
+  "version": "0.2.7",
   "network": "base-sepolia",
   "demoEnabled": false,
   "timestamp": "2026-07-16T18:25:43.511Z"
@@ -453,12 +453,14 @@ Errors: `401 unauthorized` for missing or invalid seller authentication.
 
 ### `GET /v1/admin/metrics`
 
-Returns first-party product usage and conversion metrics. Authentication must resolve to the bootstrap `owner@loopfare.local` account; ordinary seller keys receive `403 forbidden`.
+Returns first-party product usage and conversion metrics. Authenticate with the dedicated read-only `METRICS_API_KEY`. The bootstrap `owner@loopfare.local` seller key remains supported for compatibility; ordinary seller keys receive `403 forbidden`.
 
 ```bash
 curl 'https://YOUR_LOOPFARE_HOST/v1/admin/metrics?days=30' \
-  -H 'Authorization: Bearer lf_OWNER_API_KEY'
+  -H "Authorization: Bearer $METRICS_API_KEY"
 ```
+
+The dedicated key is accepted only by this metrics route and cannot access seller, wallet, project, route, budget, or payment-management endpoints.
 
 | Query | Default | Validation |
 | --- | --- | --- |
@@ -544,7 +546,7 @@ Success: `200`
 }
 ```
 
-There is no project pagination in `0.2.6`.
+There is no project pagination in `0.2.7`.
 
 ### `GET /v1/projects/:id`
 
@@ -672,7 +674,7 @@ Success: `200`
 { "routes": [] }
 ```
 
-There is no route pagination in `0.2.6`.
+There is no route pagination in `0.2.7`.
 
 ### `PATCH /v1/projects/:id/routes/:routeId`
 
@@ -716,7 +718,7 @@ Permanently deletes a route from an owned project.
 
 ## Payments and earnings
 
-These endpoints require seller authentication. They return application events newest first; there is no cursor, date filter, or transaction-hash filter in `0.2.6`.
+These endpoints require seller authentication. They return application events newest first; there is no cursor, date filter, or transaction-hash filter in `0.2.7`.
 
 ### `GET /v1/projects/:id/payments`
 

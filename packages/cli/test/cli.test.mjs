@@ -10,6 +10,7 @@ import { renderSignupWelcome, stripAnsi } from "../dist/brand.js";
 const packageDirectory = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const executable = join(packageDirectory, "dist", "index.js");
 const signupFetchMock = join(packageDirectory, "test", "mock-signup-fetch.mjs");
+const metricsFetchMock = join(packageDirectory, "test", "mock-metrics-fetch.mjs");
 const homes = [];
 
 after(() => {
@@ -28,6 +29,8 @@ function environment(home, overrides = {}) {
   delete env.LOOPFARE_PRIVATE_KEY;
   delete env.LOOPFARE_API_KEY;
   delete env.LOOPFARE_API_URL;
+  delete env.LOOPFARE_METRICS_API_KEY;
+  delete env.METRICS_API_KEY;
   return { ...env, ...overrides };
 }
 
@@ -43,7 +46,7 @@ function run(args, home = temporaryHome(), overrides = {}) {
 test("prints public CLI version and onboarding help", () => {
   const version = run(["--version"]);
   assert.equal(version.status, 0, version.stderr);
-  assert.equal(version.stdout.trim(), "0.2.6");
+  assert.equal(version.stdout.trim(), "0.2.7");
 
   const help = run(["--help"]);
   assert.equal(help.status, 0, help.stderr);
@@ -51,6 +54,27 @@ test("prints public CLI version and onboarding help", () => {
     help.stdout,
     /doctor \[options\]\s+Check runtime, API, wallet, budget, and config readiness/,
   );
+  assert.match(help.stdout, /metrics \[options\]\s+Show read-only owner usage metrics/);
+});
+
+test("reads owner metrics with a dedicated environment credential", () => {
+  const token = "lm_cli_metrics_read_only_key_1234567890";
+  const result = run(["--json", "metrics", "--days", "7"], temporaryHome(), {
+    LOOPFARE_METRICS_API_KEY: token,
+    LOOPFARE_API_URL: "https://metrics.test",
+    NODE_OPTIONS: `--import=${metricsFetchMock}`,
+  });
+  assert.equal(result.status, 0, result.stderr);
+  const output = JSON.parse(result.stdout);
+  assert.equal(output.window.days, 7);
+  assert.equal(output.summary.signups, 3);
+  assert.doesNotMatch(result.stdout + result.stderr, new RegExp(token));
+});
+
+test("requires an environment credential for owner metrics", () => {
+  const result = run(["--json", "metrics"]);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stdout, /LOOPFARE_METRICS_API_KEY or METRICS_API_KEY/);
 });
 
 test("uses the hosted beta by default without creating a config file", () => {

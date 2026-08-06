@@ -11,7 +11,7 @@ This manual covers day-to-day operation, deployment, incident response, backup, 
 | `GET /health/live` | Process liveness | None |
 | `GET /health/ready` | SQLite readiness | None |
 | `/v1/auth/*` | Seller signup, identity, and key rotation | Signup is public when enabled; other routes use a Bearer API key |
-| `GET /v1/admin/metrics` | Usage, funnel, route, client, and revenue aggregates | Owner Bearer API key |
+| `GET /v1/admin/metrics` | Usage, funnel, route, client, and revenue aggregates | Read-only metrics Bearer key |
 | `/v1/projects/*` | Projects, protected routes, payments, earnings | Seller Bearer API key |
 | `/v1/buyer/budget/*` | Compatible-client budget state | Separate budget token |
 | `/p/:projectSlug/*` | Public x402 paid reverse proxy | x402 payment; budget headers are optional |
@@ -62,12 +62,20 @@ Avoid logging full authorization or payment headers. When sharing logs, remove e
 
 ### First-party usage metrics
 
-`GET /v1/admin/metrics?days=30` returns an owner-only usage snapshot. The `days` window may be from 1 through `USAGE_RETENTION_DAYS`.
+`GET /v1/admin/metrics?days=30` returns an owner-only usage snapshot. The `days` window may be from 1 through `USAGE_RETENTION_DAYS`. Prefer the dedicated `METRICS_API_KEY`, which has no seller or wallet authority.
 
 ```bash
 curl 'https://YOUR_DOMAIN/v1/admin/metrics?days=30' \
-  -H 'Authorization: Bearer lf_OWNER_API_KEY'
+  -H "Authorization: Bearer $METRICS_API_KEY"
 ```
+
+On Railway, inspect metrics without SSH or copying the secret into your shell:
+
+```bash
+railway run --service api -- loopfare --json metrics --days 30
+```
+
+If the CLI is not installed globally, replace `loopfare` with `npx --yes @loopfare/cli@latest`. Railway injects `METRICS_API_KEY` only into that process.
 
 The response includes unique and returning visitors, signups, configured and active wallets, payment challenges, attempts, settlements split by x402/dev and demo/proxy usage, revenue, proxy traffic, error rate, the conversion funnel, daily aggregates, top routes, and client categories. Lifetime totals are derived from transactional account, project, budget, and payment tables, so they include records created before usage events were introduced.
 

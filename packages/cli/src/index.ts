@@ -95,6 +95,30 @@ program
     }
   });
 
+program
+  .command("metrics")
+  .description("Show read-only owner usage metrics")
+  .option("--days <days>", "Reporting window in days", (value) => Number(value), 30)
+  .action(async (opts: { days: number }) => {
+    const j = jsonFlag();
+    try {
+      if (!Number.isInteger(opts.days) || opts.days < 1 || opts.days > 3_650) {
+        throw new Error("Metrics days must be an integer from 1 to 3650");
+      }
+      const token = process.env.LOOPFARE_METRICS_API_KEY ?? process.env.METRICS_API_KEY;
+      if (!token) {
+        throw new Error("Set LOOPFARE_METRICS_API_KEY or METRICS_API_KEY");
+      }
+      const result = await api(`/v1/admin/metrics?days=${opts.days}`, {
+        auth: false,
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      print(result, j);
+    } catch (error) {
+      fail(error, j);
+    }
+  });
+
 // ── auth ──────────────────────────────────────────────────────────
 
 program
