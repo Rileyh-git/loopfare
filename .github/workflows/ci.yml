@@ -26,6 +26,10 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
           cache: npm
-      - run: npm ci
+      # Build tools (including TypeScript's native binary) are required even
+      # when the deployment environment defaults to production-only installs.
+      - run: npm ci --include=dev --include=optional
+        env:
+          NODE_ENV: production
       - run: npm run check
       - run: npm audit --omit=dev --audit-level=high

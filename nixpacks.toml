@@ -2,7 +2,7 @@
 nixPkgs = ["nodejs_22", "python3"]
 
 [phases.install]
-cmds = ["npm ci"]
+cmds = ["npm ci --include=dev --include=optional"]
 
 [phases.build]
 cmds = ["npm run build -w @loopfare/api"]
