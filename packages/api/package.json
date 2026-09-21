@@ -1,6 +1,6 @@
 {
   "name": "@loopfare/api",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": true,
   "type": "module",
   "scripts": {
@@ -16,12 +16,12 @@
     "@x402/core": "^2.18.0",
     "@x402/evm": "^2.18.0",
     "@x402/hono": "^2.18.0",
-    "better-sqlite3": "^11.9.1",
+    "better-sqlite3": "^12.11.1",
     "dotenv": "^16.5.0",
     "hono": "^4.13.8",
-    "viem": "^2.30.0",
     "nanoid": "^5.1.5",
     "undici": "^6.28.0",
+    "viem": "^2.30.0",
     "zod": "^3.24.4"
   },
   "devDependencies": {

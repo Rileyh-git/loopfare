@@ -46,7 +46,7 @@ function run(args, home = temporaryHome(), overrides = {}) {
 test("prints public CLI version and onboarding help", () => {
   const version = run(["--version"]);
   assert.equal(version.status, 0, version.stderr);
-  assert.equal(version.stdout.trim(), "0.3.0");
+  assert.equal(version.stdout.trim(), "0.3.1");
 
   const help = run(["--help"]);
   assert.equal(help.status, 0, help.stderr);

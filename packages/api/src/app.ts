@@ -251,7 +251,7 @@ app.get("/docs/:document", (c) => {
 app.get("/api", (c) =>
   c.json({
     name: "loopfare",
-    version: "0.3.0",
+    version: "0.3.1",
     tagline: "Make every API call pay its fare",
     network: config.network,
     networkCaip2: config.networkCaip2,
@@ -278,7 +278,7 @@ app.get("/health", (c) =>
   c.json({
     ok: databaseReady(),
     service: "loopfare",
-    version: "0.3.0",
+    version: "0.3.1",
     network: config.network,
     demoEnabled: config.demoEnabled,
     timestamp: new Date().toISOString(),

@@ -2,6 +2,11 @@
 
 Loopfare follows semantic versioning for application releases. During the `0.x` beta, minor releases may include API or operational changes that require explicit upgrade review.
 
+## 0.3.1 — Node 24 release compatibility
+
+- Upgrade the native SQLite driver to the Node 24-compatible 12.x line after CI detected a native crash in 11.x.
+- Includes all v0.3.0 hardening; v0.3.0 deployed to Railway but its CLI publication was blocked by CI.
+
 ## 0.3.0 — security, payment safety, and honest metrics
 
 - Protect wallet replacement, scope credentials to each server, and bound network requests.

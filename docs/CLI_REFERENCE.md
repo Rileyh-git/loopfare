@@ -2,7 +2,7 @@
 
 > The working-tree safety update adds `init`, `verify-origin`, `origin-secret`, `telemetry`, and `budget reservations`. See the [new commands and compatibility changes](HARDENING.md). Installed npm releases may not yet contain these commands; check `--version` and release notes.
 
-This is the complete command reference for Loopfare CLI 0.3.0. The CLI combines seller administration with a local x402 buyer wallet.
+This is the complete command reference for Loopfare CLI 0.3.1. The CLI combines seller administration with a local x402 buyer wallet.
 
 ## Install
 
