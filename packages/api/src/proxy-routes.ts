@@ -295,9 +295,9 @@ async function proxyToOrigin(
   if (secret) headers.set("X-Loopfare-Origin-Secret", secret);
   headers.set("X-Loopfare-Request-Id", c.get("requestId"));
 
-  const init: Parameters<typeof proxyFetch>[1] = {
+  const init: NonNullable<Parameters<typeof proxyFetch>[1]> = {
     method: c.req.method,
-    headers,
+    headers: Array.from(headers.entries()),
     redirect: "manual",
     signal: AbortSignal.timeout(config.proxyTimeoutMs),
     dispatcher: safeProxyDispatcher,

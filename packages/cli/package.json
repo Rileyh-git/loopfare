@@ -48,13 +48,13 @@
     "@x402/evm": "^2.18.0",
     "@x402/fetch": "^2.18.0",
     "commander": "^13.1.0",
-    "dotenv": "^16.5.0",
+    "dotenv": "^17.4.2",
     "viem": "^2.30.0",
-    "zod": "^3.24.4"
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@types/node": "^22.15.21",
     "tsx": "^4.19.4",
-    "typescript": "^5.8.3"
+    "typescript": "^7.0.2"
   }
 }

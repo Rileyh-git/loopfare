@@ -13,7 +13,7 @@ const candidates = [
 ];
 for (const path of candidates) {
   if (existsSync(path)) {
-    loadEnv({ path });
+    loadEnv({ path, quiet: true });
     break;
   }
 }
