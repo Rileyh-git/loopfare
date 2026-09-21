@@ -21,6 +21,8 @@ The same service includes:
 
 ## Architecture
 
+Server development requires Node.js 22.19.0 or newer (Undici 8 requirement). The standalone CLI still supports Node.js 22 or newer.
+
 ```text
 AI agent / x402 client
         │

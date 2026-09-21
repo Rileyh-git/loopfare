@@ -19,7 +19,7 @@
     "cli": "npm run start -w @loopfare/cli --"
   },
   "engines": {
-    "node": ">=22"
+    "node": ">=22.19.0"
   },
   "overrides": {
     "fast-uri": "3.1.6"
