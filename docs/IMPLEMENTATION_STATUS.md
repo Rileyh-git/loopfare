@@ -2,6 +2,8 @@
 
 September 21, 2026. Implementation snapshot for v0.3.0; deployment and registry publication must be verified independently of this checklist.
 
+Rollout update: v0.3.1 is live on Railway; its pre-migration SQLite backup passed integrity and foreign-key checks, live database/payment health checks passed, and read-only metrics preserved the prior records. Node 22 and Node 24 CI both passed after upgrading better-sqlite3 to 12.11.1. npm accepted v0.3.1 with provenance but required processing time before registry installation; the workflow now retries that smoke check. Remaining-acceptance entries below are the original pre-rollout checklist, not a claim that scheduled/off-site backups or human testing are complete.
+
 | Review item | Implemented | Remaining acceptance |
 | --- | --- | --- |
 | 1. Wallet safety | Explicit replacement, stdin import, corrupt-config rejection, private files, pending-payment guard | Optional OS keychain integration is not implemented |

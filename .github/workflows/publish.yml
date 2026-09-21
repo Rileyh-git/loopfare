@@ -55,7 +55,7 @@ jobs:
   publish:
     needs: verify
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     permissions:
       contents: read
       id-token: write
@@ -77,7 +77,16 @@ jobs:
           version=$(tar -xOf "$archive" package/package.json | node -e 'let text="";process.stdin.on("data",c=>text+=c);process.stdin.on("end",()=>process.stdout.write(JSON.parse(text).version))')
           testdir=$(mktemp -d)
           cd "$testdir"
-          npm install --ignore-scripts "@loopfare/cli@$version"
+          # npm accepts publication before its registry finishes processing it.
+          installed=false
+          for attempt in $(seq 1 24); do
+            if npm install --ignore-scripts --prefer-online "@loopfare/cli@$version"; then
+              installed=true
+              break
+            fi
+            sleep 10
+          done
+          test "$installed" = true
           ./node_modules/.bin/loopfare --version
           ./node_modules/.bin/loopfare signup --help
           ./node_modules/.bin/loopfare doctor --help
