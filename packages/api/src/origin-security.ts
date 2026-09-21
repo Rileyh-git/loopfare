@@ -54,12 +54,13 @@ export async function assertSafeOrigin(input: string): Promise<string> {
   const normalized = normalizeOriginUrl(input);
   if (config.allowPrivateOrigins) return normalized;
 
-  const hostname = new URL(normalized).hostname;
+  const hostname = new URL(normalized).hostname.replace(/^\[|\]$/g, "");
   const addresses = isIP(hostname)
     ? [{ address: hostname }]
     : await lookup(hostname, { all: true, verbatim: true });
 
-  if (addresses.length === 0) throw new Error("Origin hostname did not resolve");
+  if (addresses.length === 0)
+    throw new Error("Origin hostname did not resolve");
   if (addresses.some(({ address }) => isPrivateAddress(address))) {
     throw new Error("Origin must resolve only to public IP addresses");
   }
@@ -96,11 +97,15 @@ export const safeProxyDispatcher = new Agent({
                 : options.family === "IPv6"
                   ? 6
                   : 0;
-          const selected = allowed.find((address) => family === 0 || address.family === family);
+          const selected = allowed.find(
+            (address) => family === 0 || address.family === family,
+          );
 
           if (!selected || allowed.length !== candidates.length) {
             const blocked = Object.assign(
-              new Error("Origin DNS resolution included a non-public IP address"),
+              new Error(
+                "Origin DNS resolution included a non-public IP address",
+              ),
               { code: "EACCES" },
             );
             callback(blocked, "", 0);
@@ -128,7 +133,8 @@ export function isPrivateAddress(address: string): boolean {
   if (isIP(value) === 4) {
     const parts = value.split(".").map(Number);
     const [a, b, c] = parts;
-    if (parts.length !== 4 || parts.some((part) => part < 0 || part > 255)) return true;
+    if (parts.length !== 4 || parts.some((part) => part < 0 || part > 255))
+      return true;
     return (
       a === 0 ||
       a === 10 ||

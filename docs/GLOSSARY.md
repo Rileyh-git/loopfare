@@ -62,7 +62,7 @@ A path pattern, method set, price, description, and origin attached to a project
 
 ## Reservation
 
-An atomic increment against a compatible server budget performed after payment verification but before origin forwarding. It is refunded if the origin or settlement fails.
+A durable amount reserved against a compatible server budget after payment verification and before forwarding. Unknown real-payment outcomes remain counted until reconciled; refunds identify the original reservation rather than subtracting unrelated current-day spend.
 
 ## Reverse proxy
 

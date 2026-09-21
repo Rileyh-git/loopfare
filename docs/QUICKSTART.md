@@ -1,5 +1,7 @@
 # Quickstart
 
+> Before using a non-dev deployment, complete [origin authentication and verification](HARDENING.md#seller-origin-setup-and-rotation). `loopfare init` carries project/route IDs through setup; new routes stay disabled until verified. Use the matching updated CLI for signed budget setup.
+
 This guide takes you from a clean checkout to a protected endpoint and a paid test request. Loopfare is currently a Base Sepolia beta. Base Sepolia uses test assets only.
 
 ## What you will build

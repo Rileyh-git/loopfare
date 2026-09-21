@@ -1,5 +1,7 @@
 # Loopfare
 
+> Safety update in this checkout: see the [rollout checklist](docs/HARDENING.md) before deployment. Routes are read-only and require origin verification outside dev mode; budget setup requires a wallet signature. These changes are not yet the published npm release.
+
 [![CI](https://github.com/Rileyh-git/loopfare/actions/workflows/ci.yml/badge.svg)](https://github.com/Rileyh-git/loopfare/actions/workflows/ci.yml)
 
 **Make every API call pay its fare.**

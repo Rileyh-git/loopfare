@@ -128,19 +128,56 @@ db.exec(`
 ensureColumn("accounts", "api_key_hash", "TEXT");
 ensureColumn("accounts", "api_key_prefix", "TEXT");
 ensureColumn("buyer_budgets", "access_token_hash", "TEXT");
-db.exec(`CREATE INDEX IF NOT EXISTS idx_accounts_api_key_hash ON accounts(api_key_hash)`);
+db.exec(
+  `CREATE INDEX IF NOT EXISTS idx_accounts_api_key_hash ON accounts(api_key_hash)`,
+);
 migrateLegacyApiKeys();
 
-function ensureColumn(table: "accounts" | "buyer_budgets", column: string, definition: string) {
-  const columns = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
+function ensureColumn(
+  table: "accounts" | "buyer_budgets" | "projects" | "payments",
+  column: string,
+  definition: string,
+) {
+  const columns = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{
+    name: string;
+  }>;
   if (!columns.some((entry) => entry.name === column)) {
     db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
   }
 }
 
+db.transaction(() => {
+  db.exec(
+    "CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)",
+  );
+  ensureColumn("projects", "archived_at", "TEXT");
+  for (const column of ["account_id", "network", "asset", "amount_atomic"])
+    ensureColumn("payments", column, "TEXT");
+  ensureColumn("payments", "is_demo", "INTEGER NOT NULL DEFAULT 0");
+  ensureColumn("payments", "is_test", "INTEGER NOT NULL DEFAULT 0");
+  db.exec(`UPDATE payments SET account_id = (SELECT account_id FROM projects WHERE projects.id = payments.project_id) WHERE account_id IS NULL;
+    UPDATE payments SET is_demo = 1 WHERE path LIKE '/demo/%';
+    INSERT OR IGNORE INTO schema_migrations VALUES (1, strftime('%Y-%m-%dT%H:%M:%fZ','now'));`);
+  db.exec(`CREATE TABLE IF NOT EXISTS budget_reservations (
+    id TEXT PRIMARY KEY, wallet TEXT NOT NULL, day TEXT NOT NULL, amount_atomic INTEGER NOT NULL,
+    network TEXT NOT NULL, state TEXT NOT NULL CHECK(state IN ('reserved','unknown','settled','failed')),
+    created_at TEXT NOT NULL
+  ); CREATE INDEX IF NOT EXISTS idx_budget_reservations_wallet ON budget_reservations(wallet, day);`);
+  db.exec(`CREATE TABLE IF NOT EXISTS payment_operations (
+    id TEXT PRIMARY KEY, request_id TEXT NOT NULL, route_id TEXT NOT NULL, state TEXT NOT NULL,
+    transaction_hash TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+  )`);
+  if (!db.prepare("SELECT 1 FROM schema_migrations WHERE version = 2").get()) {
+    db.exec(`INSERT INTO budget_reservations SELECT 'legacy-' || id, wallet_address, spent_day, CAST(ROUND(spent_today_usd * 1000000) AS INTEGER), 'unknown', 'settled', updated_at FROM buyer_budgets WHERE spent_today_usd > 0;
+      INSERT INTO schema_migrations VALUES (2, strftime('%Y-%m-%dT%H:%M:%fZ','now'));`);
+  }
+})();
+
 function migrateLegacyApiKeys() {
   const rows = db
-    .prepare(`SELECT id, api_key FROM accounts WHERE api_key_hash IS NULL OR api_key_hash = ''`)
+    .prepare(
+      `SELECT id, api_key FROM accounts WHERE api_key_hash IS NULL OR api_key_hash = ''`,
+    )
     .all() as Array<{ id: string; api_key: string }>;
   const update = db.prepare(
     `UPDATE accounts SET api_key = ?, api_key_hash = ?, api_key_prefix = ? WHERE id = ?`,
@@ -206,7 +243,10 @@ export function getAccountByEmail(email: string): Account | undefined {
     .get(email.toLowerCase().trim()) as Account | undefined;
 }
 
-export function rotateApiKey(accountId: string): { apiKey: string; prefix: string } {
+export function rotateApiKey(accountId: string): {
+  apiKey: string;
+  prefix: string;
+} {
   const apiKey = `lf_${nanoid(40)}`;
   const hash = hashSecret(apiKey);
   const prefix = secretPrefix(apiKey);
@@ -249,20 +289,32 @@ export function createProject(input: {
 
 export function listProjects(accountId: string): Project[] {
   return db
-    .prepare(`SELECT * FROM projects WHERE account_id = ? ORDER BY created_at DESC`)
+    .prepare(
+      `SELECT * FROM projects WHERE account_id = ? AND archived_at IS NULL ORDER BY created_at DESC`,
+    )
     .all(accountId) as Project[];
 }
 
 export function getProjectBySlug(slug: string): Project | undefined {
-  return db.prepare(`SELECT * FROM projects WHERE slug = ?`).get(slug) as Project | undefined;
+  return db
+    .prepare(`SELECT * FROM projects WHERE slug = ? AND archived_at IS NULL`)
+    .get(slug) as Project | undefined;
 }
 
 export function getProjectById(id: string): Project | undefined {
-  return db.prepare(`SELECT * FROM projects WHERE id = ?`).get(id) as Project | undefined;
+  return db
+    .prepare(`SELECT * FROM projects WHERE id = ? AND archived_at IS NULL`)
+    .get(id) as Project | undefined;
 }
 
 export function deleteProject(id: string) {
-  return db.prepare(`DELETE FROM projects WHERE id = ?`).run(id).changes > 0;
+  return (
+    db
+      .prepare(
+        `UPDATE projects SET archived_at = ? WHERE id = ? AND archived_at IS NULL`,
+      )
+      .run(now(), id).changes > 0
+  );
 }
 
 export function createRoute(input: {
@@ -312,11 +364,21 @@ export function updateRoute(
         ? current.path_pattern
         : normalizePathPattern(input.pathPattern),
     origin_url:
-      input.originUrl === undefined ? current.origin_url : normalizeOriginUrl(input.originUrl),
-    price: input.price === undefined ? current.price : normalizePrice(input.price),
-    description: input.description === undefined ? current.description : input.description.trim(),
-    methods: input.methods === undefined ? current.methods : normalizeMethods(input.methods),
-    enabled: input.enabled === undefined ? current.enabled : input.enabled ? 1 : 0,
+      input.originUrl === undefined
+        ? current.origin_url
+        : normalizeOriginUrl(input.originUrl),
+    price:
+      input.price === undefined ? current.price : normalizePrice(input.price),
+    description:
+      input.description === undefined
+        ? current.description
+        : input.description.trim(),
+    methods:
+      input.methods === undefined
+        ? current.methods
+        : normalizeMethods(input.methods),
+    enabled:
+      input.enabled === undefined ? current.enabled : input.enabled ? 1 : 0,
   };
   db.prepare(
     `UPDATE routes
@@ -328,18 +390,25 @@ export function updateRoute(
 }
 
 export function deleteRoute(id: string, projectId: string) {
-  return db.prepare(`DELETE FROM routes WHERE id = ? AND project_id = ?`).run(id, projectId)
-    .changes > 0;
+  return (
+    db
+      .prepare(`DELETE FROM routes WHERE id = ? AND project_id = ?`)
+      .run(id, projectId).changes > 0
+  );
 }
 
 export function listRoutes(projectId: string): ProtectedRoute[] {
   return db
-    .prepare(`SELECT * FROM routes WHERE project_id = ? ORDER BY created_at DESC`)
+    .prepare(
+      `SELECT * FROM routes WHERE project_id = ? ORDER BY created_at DESC`,
+    )
     .all(projectId) as ProtectedRoute[];
 }
 
 export function getRouteById(id: string): ProtectedRoute | undefined {
-  return db.prepare(`SELECT * FROM routes WHERE id = ?`).get(id) as ProtectedRoute | undefined;
+  return db.prepare(`SELECT * FROM routes WHERE id = ?`).get(id) as
+    | ProtectedRoute
+    | undefined;
 }
 
 export function findRouteForRequest(
@@ -353,7 +422,8 @@ export function findRouteForRequest(
   const path = normalizePathPattern(pathAfterProject || "/");
   for (const route of routes) {
     const methods = route.methods.split(",");
-    if (!methods.includes(method.toUpperCase()) && !methods.includes("*")) continue;
+    if (!methods.includes(method.toUpperCase()) && !methods.includes("*"))
+      continue;
     if (matchPath(route.path_pattern, path)) {
       return { ...route, pay_to: project.pay_to, project_slug: project.slug };
     }
@@ -370,6 +440,10 @@ export function recordPayment(input: {
   status: string;
   txHash?: string | null;
   buyerHint?: string | null;
+  network?: string;
+  asset?: string;
+  amountAtomic?: string;
+  isTest?: boolean;
 }): PaymentEvent {
   const event: PaymentEvent = {
     id: nanoid(),
@@ -384,9 +458,24 @@ export function recordPayment(input: {
     created_at: now(),
   };
   db.prepare(
-    `INSERT INTO payments (id, route_id, project_id, method, path, price, status, tx_hash, buyer_hint, created_at)
-     VALUES (@id, @route_id, @project_id, @method, @path, @price, @status, @tx_hash, @buyer_hint, @created_at)`,
-  ).run(event);
+    `INSERT INTO payments (id, route_id, project_id, method, path, price, status, tx_hash, buyer_hint, created_at, account_id, network, asset, amount_atomic, is_demo, is_test)
+     VALUES (@id, @route_id, @project_id, @method, @path, @price, @status, @tx_hash, @buyer_hint, @created_at, @account_id, @network, @asset, @amount_atomic, @is_demo, @is_test)`,
+  ).run({
+    ...event,
+    account_id: input.projectId
+      ? (getProjectById(input.projectId)?.account_id ?? null)
+      : null,
+    network: input.network ?? config.networkCaip2,
+    asset:
+      input.asset ??
+      (config.network === "base"
+        ? "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+        : "0x036CbD53842c5426634e7929541eC2318f3dCF7e"),
+    amount_atomic:
+      input.amountAtomic ?? String(Math.round(priceToUsd(input.price) * 1e6)),
+    is_demo: input.path.startsWith("/demo/") ? 1 : 0,
+    is_test: input.isTest || input.status === "dev_settled" ? 1 : 0,
+  });
   return event;
 }
 
@@ -398,15 +487,16 @@ export function listPayments(opts: {
   const limit = clampLimit(opts.limit);
   if (opts.projectId) {
     return db
-      .prepare(`SELECT * FROM payments WHERE project_id = ? ORDER BY created_at DESC LIMIT ?`)
+      .prepare(
+        `SELECT * FROM payments WHERE project_id = ? ORDER BY created_at DESC LIMIT ?`,
+      )
       .all(opts.projectId, limit) as PaymentEvent[];
   }
   if (opts.accountId) {
     return db
       .prepare(
         `SELECT pay.* FROM payments pay
-         JOIN projects p ON p.id = pay.project_id
-         WHERE p.account_id = ?
+         WHERE pay.account_id = ?
          ORDER BY pay.created_at DESC LIMIT ?`,
       )
       .all(opts.accountId, limit) as PaymentEvent[];
@@ -414,11 +504,14 @@ export function listPayments(opts: {
   return [];
 }
 
-export function getEarnings(projectId: string): { count: number; volume_usd: number } {
+export function getEarnings(projectId: string): {
+  count: number;
+  volume_usd: number;
+} {
   const rows = db
     .prepare(
       `SELECT price FROM payments
-       WHERE project_id = ? AND status IN ('settled', 'dev_settled')`,
+       WHERE project_id = ? AND status = 'settled' AND network = 'eip155:8453' AND is_test = 0 AND is_demo = 0`,
     )
     .all(projectId) as Array<{ price: string }>;
   const volume = rows.reduce((sum, row) => sum + priceToUsd(row.price), 0);
@@ -433,7 +526,8 @@ export function setBudget(
   const address = walletAddress.toLowerCase();
   const tokenHash = hashSecret(accessToken);
   const existing = getBudgetByAddress(address);
-  if (existing?.access_token_hash && existing.access_token_hash !== tokenHash) return undefined;
+  if (existing?.access_token_hash && existing.access_token_hash !== tokenHash)
+    return undefined;
 
   if (!existing) {
     const budget: BuyerBudget = {
@@ -465,7 +559,10 @@ export function getBudgetForToken(
   accessToken: string,
 ): BuyerBudget | undefined {
   const budget = getBudgetByAddress(walletAddress.toLowerCase());
-  if (!budget?.access_token_hash || budget.access_token_hash !== hashSecret(accessToken)) {
+  if (
+    !budget?.access_token_hash ||
+    budget.access_token_hash !== hashSecret(accessToken)
+  ) {
     return undefined;
   }
   return resetBudgetDay(budget);
@@ -475,9 +572,15 @@ export function canSpendBudget(
   walletAddress: string,
   accessToken: string,
   amountUsd: number,
-): { ok: boolean; budget?: BuyerBudget; reason?: string; unauthorized?: boolean } {
+): {
+  ok: boolean;
+  budget?: BuyerBudget;
+  reason?: string;
+  unauthorized?: boolean;
+} {
   const budget = getBudgetForToken(walletAddress, accessToken);
-  if (!budget) return { ok: false, unauthorized: true, reason: "Invalid budget token" };
+  if (!budget)
+    return { ok: false, unauthorized: true, reason: "Invalid budget token" };
   if (budget.spent_today_usd + amountUsd > budget.daily_limit_usd + 1e-9) {
     return {
       ok: false,
@@ -492,19 +595,49 @@ export function trySpendBudget(
   walletAddress: string,
   accessToken: string,
   amountUsd: number,
-): { ok: boolean; budget?: BuyerBudget; reason?: string; unauthorized?: boolean } {
+): {
+  ok: boolean;
+  budget?: BuyerBudget;
+  reason?: string;
+  unauthorized?: boolean;
+  reservationId?: string;
+} {
   const spend = db.transaction(() => {
     const check = canSpendBudget(walletAddress, accessToken, amountUsd);
     if (!check.ok || !check.budget) return check;
-    const result = db.prepare(
-      `UPDATE buyer_budgets
+    const atomic = Math.round(amountUsd * 1_000_000);
+    if (!Number.isSafeInteger(atomic) || atomic <= 0)
+      throw new Error("Invalid reservation amount");
+    const result = db
+      .prepare(
+        `UPDATE buyer_budgets
        SET spent_today_usd = spent_today_usd + ?, updated_at = ?
        WHERE id = ? AND spent_today_usd + ? <= daily_limit_usd + 0.000000001`,
-    ).run(amountUsd, now(), check.budget.id, amountUsd);
+      )
+      .run(amountUsd, now(), check.budget.id, amountUsd);
     if (result.changes === 0) {
-      return { ok: false, budget: getBudgetForToken(walletAddress, accessToken), reason: "Daily budget exceeded" };
+      return {
+        ok: false,
+        budget: getBudgetForToken(walletAddress, accessToken),
+        reason: "Daily budget exceeded",
+      };
     }
-    return { ok: true, budget: getBudgetForToken(walletAddress, accessToken) };
+    const reservationId = nanoid();
+    db.prepare(
+      "INSERT INTO budget_reservations VALUES (?, ?, ?, ?, ?, 'reserved', ?)",
+    ).run(
+      reservationId,
+      walletAddress.toLowerCase(),
+      today(),
+      atomic,
+      config.networkCaip2,
+      now(),
+    );
+    return {
+      ok: true,
+      reservationId,
+      budget: getBudgetForToken(walletAddress, accessToken),
+    };
   });
   return spend();
 }
@@ -513,17 +646,26 @@ export function trySpendBudget(
 export function refundBudgetSpend(
   walletAddress: string,
   accessToken: string,
-  amountUsd: number,
+  reservationId: string,
 ): boolean {
   const budget = getBudgetForToken(walletAddress, accessToken);
-  if (!budget || budget.spent_day !== today()) return false;
+  if (!budget) return false;
   return (
-    db.prepare(
-      `UPDATE buyer_budgets
-       SET spent_today_usd = MAX(0, spent_today_usd - ?), updated_at = ?
-       WHERE id = ? AND access_token_hash = ? AND spent_day = ?`,
-    ).run(amountUsd, now(), budget.id, hashSecret(accessToken), today()).changes > 0
+    db
+      .prepare(
+        "UPDATE budget_reservations SET state = 'failed' WHERE id = ? AND wallet = ? AND state IN ('reserved','unknown')",
+      )
+      .run(reservationId, walletAddress.toLowerCase()).changes > 0
   );
+}
+
+export function finishBudgetReservation(
+  id: string,
+  state: "settled" | "unknown",
+) {
+  db.prepare(
+    "UPDATE budget_reservations SET state = ? WHERE id = ? AND state IN ('reserved','unknown')",
+  ).run(state, id);
 }
 
 function getBudgetByAddress(walletAddress: string): BuyerBudget | undefined {
@@ -533,11 +675,15 @@ function getBudgetByAddress(walletAddress: string): BuyerBudget | undefined {
 }
 
 function resetBudgetDay(budget: BuyerBudget): BuyerBudget {
-  if (budget.spent_day === today()) return budget;
+  const total = db
+    .prepare(
+      "SELECT COALESCE(SUM(amount_atomic), 0) AS amount FROM budget_reservations WHERE wallet = ? AND state != 'failed' AND (day = ? OR state IN ('reserved','unknown'))",
+    )
+    .get(budget.wallet_address, today()) as { amount: number };
   db.prepare(
     `UPDATE buyer_budgets
-     SET spent_today_usd = 0, spent_day = ?, updated_at = ? WHERE id = ?`,
-  ).run(today(), now(), budget.id);
+     SET spent_today_usd = ?, spent_day = ?, updated_at = ? WHERE id = ?`,
+  ).run(total.amount / 1_000_000, today(), now(), budget.id);
   return getBudgetByAddress(budget.wallet_address)!;
 }
 
@@ -557,9 +703,13 @@ export function priceToUsd(price: string): number {
 }
 
 export function normalizePrice(price: string): string {
-  const candidate = price.trim().startsWith("$") ? price.trim() : `$${price.trim()}`;
+  const candidate = price.trim().startsWith("$")
+    ? price.trim()
+    : `$${price.trim()}`;
   if (!/^\$(?:0|[1-9]\d*)(?:\.\d{1,6})?$/.test(candidate)) {
-    throw new Error("Price must be a dollar amount with up to 6 decimal places");
+    throw new Error(
+      "Price must be a dollar amount with up to 6 decimal places",
+    );
   }
   const value = priceToUsd(candidate);
   if (value < 0.000001 || value > 10_000) {
@@ -569,13 +719,24 @@ export function normalizePrice(price: string): string {
 }
 
 export function normalizeMethods(methods?: string): string {
-  const allowed = new Set(["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS", "*"]);
-  const values = (methods ?? "GET,POST,PUT,PATCH,DELETE,HEAD,OPTIONS")
+  const allowed = new Set([
+    "GET",
+    "POST",
+    "PUT",
+    "PATCH",
+    "DELETE",
+    "HEAD",
+    "OPTIONS",
+    "*",
+  ]);
+  const values = (methods ?? "GET,HEAD")
     .split(",")
     .map((method) => method.trim().toUpperCase())
     .filter(Boolean);
   if (values.length === 0 || values.some((method) => !allowed.has(method))) {
-    throw new Error("Methods must be a comma-separated list of valid HTTP methods");
+    throw new Error(
+      "Methods must be a comma-separated list of valid HTTP methods",
+    );
   }
   return [...new Set(values)].join(",");
 }
@@ -587,7 +748,8 @@ export function normalizePathPattern(path: string): string {
   if (normalized.includes("?") || normalized.includes("#")) {
     throw new Error("Path pattern cannot contain a query string or fragment");
   }
-  if (normalized.length > 1 && normalized.endsWith("/")) normalized = normalized.slice(0, -1);
+  if (normalized.length > 1 && normalized.endsWith("/"))
+    normalized = normalized.slice(0, -1);
   return normalized;
 }
 
@@ -605,7 +767,8 @@ export function matchPath(pattern: string, path: string): boolean {
   const actualParts = actual.split("/").filter(Boolean);
   if (expectedParts.length !== actualParts.length) return false;
   return expectedParts.every(
-    (part, index) => part.startsWith(":") || part === "*" || part === actualParts[index],
+    (part, index) =>
+      part.startsWith(":") || part === "*" || part === actualParts[index],
   );
 }
 

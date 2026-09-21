@@ -2,6 +2,17 @@
 
 Loopfare follows semantic versioning for application releases. During the `0.x` beta, minor releases may include API or operational changes that require explicit upgrade review.
 
+## 0.3.0 — security, payment safety, and honest metrics
+
+- Protect wallet replacement, scope credentials to each server, and bound network requests.
+- Require signed budget ownership and encrypted, verified HTTPS origins.
+- Keep durable payment reservations and replay records; disable unsafe paid writes.
+- Preserve archived payment history and separate test traffic from real seller volume.
+- Correct expected payment challenges in first-party metrics and honor privacy preferences.
+- Add guided onboarding, an authenticated sample origin, payment health, and pre-migration backup checks.
+- Update dependencies, split large modules, and strengthen release verification.
+- Breaking: upgrade the CLI with the server; budget setup needs a signature and seller routes need origin verification.
+
 ## 0.2.7 — read-only metrics access
 
 - Add an independently rotatable `METRICS_API_KEY` accepted only by the aggregate usage endpoint.

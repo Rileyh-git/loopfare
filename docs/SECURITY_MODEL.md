@@ -1,6 +1,6 @@
 # Security model
 
-This document describes the security properties and trust boundaries of Loopfare 0.2.7. It is a design description, not a security certification. Review it before exposing an instance to untrusted sellers, buyers, or origins.
+This document describes the security properties and trust boundaries of Loopfare 0.3.0. It is a design description, not a security certification. Review it before exposing an instance to untrusted sellers, buyers, or origins.
 
 Security reports should follow [the repository security policy](../SECURITY.md).
 
@@ -89,7 +89,7 @@ Key rotation invalidates the old key immediately. There is no password login, em
 
 `ADMIN_API_KEY` may bootstrap `owner@loopfare.local` on an empty database. After that account exists, changing the environment variable does not rotate its stored key.
 
-`METRICS_API_KEY` grants read-only access to `GET /v1/admin/metrics` and is compared in constant time. It is not an account credential and cannot access seller, buyer, wallet, project, route, budget, or payment-management endpoints. Generate and rotate it independently. The bootstrap owner seller key remains accepted for compatibility. Usage analytics never grant seller or buyer authority and are excluded from public service metadata beyond the endpoint hint.
+`METRICS_API_KEY` grants read-only access to `GET /v1/admin/metrics` and is compared in constant time. It is not a seller credential. Generate and rotate it independently. No public email identity or bootstrap seller key grants metrics access. See the [safety rollout checklist](HARDENING.md).
 
 ### Usage analytics privacy
 
@@ -97,13 +97,13 @@ Browser visitors receive an opaque, first-party `lf_session` cookie with `HttpOn
 
 The usage store does not retain raw IP addresses, complete user-agent strings, or referrer query strings. It stores a coarse client category and a referrer origin plus path. Health probes, the metrics endpoint, and static browser assets are excluded. Recognized bots are tagged and excluded from product aggregates. Raw usage events are deleted after `USAGE_RETENTION_DAYS`; daily aggregate rows remain available for trend reporting.
 
-Transactional tables remain separate from analytics. In particular, payment records can contain the buyer wallet hint supplied by a compatible client because that value is part of the seller-facing payment history.
+Transactional tables remain separate from analytics. New settled payment rows use the facilitator receipt's payer identity. Legacy buyer hints were client-supplied and are not verified payer identities. DNT/GPC and CLI opt-out suppress usage events, not necessary transaction records.
 
 ### Buyer budget tokens
 
-Budget endpoints accept a separate high-entropy token through `X-Loopfare-Budget-Token` or Bearer authorization. Its SHA-256 digest is stored. The first token used for a wallet claims that budget record; another token cannot replace it through the current API.
+Budget endpoints accept a separate high-entropy token through `X-Loopfare-Budget-Token` or Bearer authorization. Its SHA-256 digest is stored. Setting or rotating it requires an EOA wallet signature over a domain-bound challenge with a single-use nonce and five-minute expiry.
 
-A budget token is not a wallet key and cannot sign transactions. Conversely, wallet ownership is not proven when setting a budget: knowledge of the token controls the Loopfare budget record for the supplied address.
+A budget token is not a wallet key and cannot sign transactions. Proof of wallet control is required for setup/rotation; read access requires the token. Rotation preserves spent and pending amounts.
 
 ### CORS
 
@@ -119,9 +119,9 @@ Loopfare uses x402 v2 with the `exact` EVM scheme on Base Sepolia or Base. For a
 4. The configured facilitator verifies it.
 5. Loopfare atomically reserves an optional compatible-client budget, then calls the origin.
 6. The facilitator settles only after the origin handler succeeds and adds `PAYMENT-RESPONSE`.
-7. Loopfare records the settlement and returns the response. Failed/unsettled origin flows release a budget reservation.
+7. Loopfare records confirmed settlement and returns the response. Unknown outcomes retain durable reservations, including across day rollover. A verified payment-signature claim prevents replay from invoking the origin again. Paid writes remain disabled.
 
-The facilitator is trusted to enforce scheme semantics and report verification and settlement accurately. Availability or compromise of the facilitator directly affects the payment boundary. Mainnet must not use the public testnet facilitator, and the current application needs additional integration work for facilitator-specific authentication.
+The facilitator is trusted to enforce scheme semantics and report verification and settlement accurately. Its availability or compromise directly affects this boundary. Mainnet must not use the public testnet facilitator. Optional Bearer authentication is supported for compatible providers; provider-specific JWT integrations require additional work.
 
 Application payment rows record requested price, status, route/project, path, an optional buyer hint, and a transaction identifier when it can be decoded from `PAYMENT-RESPONSE`. They do not provide finality monitoring or reconcile against on-chain state. Earnings are a sum of application events, not audited revenue.
 
@@ -136,7 +136,7 @@ These are safety rails, not custody controls:
 - A buyer can omit budget headers and use another x402 client.
 - A caller can assert any wallet header; the budget token is the server's authority.
 - The CLI serializes local budget reservation with a short-lived lock and atomic config-file replacement; process crashes can still leave conservative reserved spend until an operator reconciles the file.
-- The server uses an atomic conditional update to reserve budget before calling the origin and refunds it when the handler fails or settlement is absent. This is still an application safety rail, not a strict on-chain cap.
+- The server records integer-amount reservations before forwarding and retains unconfirmed spend. A missing response never automatically frees real-payment spend. This is an application safety rail, not a strict on-chain cap.
 - Reset occurs by UTC date, not the buyer's local timezone.
 - An attacker with the wallet private key can pay independently of Loopfare.
 

@@ -8,4 +8,4 @@ cmds = ["npm ci"]
 cmds = ["npm run build -w @loopfare/api"]
 
 [start]
-cmd = "node packages/api/dist/index.js"
+cmd = "node scripts/start.mjs"

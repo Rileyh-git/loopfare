@@ -10,7 +10,7 @@ const npmUrl = "https://www.npmjs.com/package/@loopfare/cli";
 export function websiteHtml(options: WebsiteOptions) {
   const publicUrl = escapeHtml(options.publicUrl);
   const networkLabel = options.network === "base" ? "Base mainnet" : "Base Sepolia beta";
-  const demoHref = options.demoEnabled ? "/demo/v1/fortune" : "#quickstart";
+  const demoHref = options.demoEnabled ? "/demo" : "#quickstart";
   const demoLabel = options.demoEnabled ? "Try the paid demo" : "Launch the quickstart";
 
   return `<!doctype html>
@@ -19,7 +19,9 @@ export function websiteHtml(options: WebsiteOptions) {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Loopfare — Usage-based payments for AI APIs</title>
-  <meta name="description" content="Put an x402 payment gate in front of any HTTP API. AI agents pay per request with USDC on Base—no buyer accounts or API keys.">
+  <meta name="description" content="Test pay-per-request access to seller-owned read-only APIs with an open-source x402 proxy and CLI. Hosted beta uses Base Sepolia test funds.">
+  <link rel="canonical" href="${publicUrl}">
+  <meta property="og:image" content="${publicUrl}/social.svg">
   <meta name="theme-color" content="#f5f3ef">
   <meta property="og:title" content="Loopfare — Make every API call pay its fare">
   <meta property="og:description" content="Usage-based payments for APIs and AI agents, powered by x402 on Base.">
@@ -285,7 +287,7 @@ export function websiteHtml(options: WebsiteOptions) {
       <div class="hero-copy shell">
         <div class="eyebrow">Payments built for agents</div>
         <h1>Make every API call pay its fare.</h1>
-        <p>Put an x402 payment gate in front of any HTTP API. Agents pay per request in USDC—without buyer accounts, subscriptions, or API keys.</p>
+        <p>Test pay-per-request access to your read-only API with an open-source x402 proxy and CLI. The hosted beta uses Base Sepolia test funds; sellers enforce authentication at their origin.</p>
         <div class="hero-actions">
           <a class="button button-primary" href="#quickstart">Start building <span aria-hidden="true">→</span></a>
           <a class="button button-secondary" href="/skill.md">Read the agent skill</a>
@@ -348,7 +350,7 @@ export function websiteHtml(options: WebsiteOptions) {
         <div class="three-grid">
           <article class="feature">
             <span class="feature-number">01</span>
-            <h3>Protect any HTTP origin</h3>
+            <h3>Connect your verified origin</h3>
             <p>Point Loopfare at an existing API, choose a route and price, and get a paid public endpoint in minutes.</p>
           </article>
           <article class="feature">
@@ -390,7 +392,7 @@ export function websiteHtml(options: WebsiteOptions) {
           <article class="step"><span class="step-index">01</span><div><h3>The agent makes a normal request</h3><p>No pre-registration. No subscription. It simply asks for the protected resource.</p></div></article>
           <article class="step"><span class="step-index">02</span><div><h3>Loopfare returns payment requirements</h3><p>The 402 response includes a v2 PAYMENT-REQUIRED challenge with the price, network, and seller wallet.</p></div></article>
           <article class="step"><span class="step-index">03</span><div><h3>The buyer signs and retries</h3><p>An x402 client creates the payment payload and repeats the request with PAYMENT-SIGNATURE.</p></div></article>
-          <article class="step"><span class="step-index">04</span><div><h3>Payment settles, then traffic flows</h3><p>The facilitator verifies settlement and Loopfare proxies the paid request to the seller's origin.</p></div></article>
+          <article class="step"><span class="step-index">04</span><div><h3>Verify, serve, then settle</h3><p>The facilitator verifies the payment, Loopfare requests the read-only result, then settlement follows a successful origin response. Sellers must enforce origin authentication to prevent bypass.</p></div></article>
         </div>
       </div>
     </section>
@@ -521,7 +523,7 @@ export function websiteHtml(options: WebsiteOptions) {
     }).then(function () {
       var status = document.getElementById('live-status');
       status.classList.add('ok');
-      status.querySelector('span').textContent = 'All systems operational';
+      status.querySelector('span').textContent = 'API reachable · payment status separate';
     }).catch(function () {
       document.querySelector('#live-status span').textContent = 'Service status unavailable';
     });

@@ -33,6 +33,9 @@ export type RequestUsageContext = {
   referrer: string | null;
   isBot: boolean;
   excluded: boolean;
+  campaign: string | null;
+  installHash: string | null;
+  testTraffic: boolean;
 };
 
 export type UsageEventInput = {
@@ -128,42 +131,57 @@ export function createRequestUsageContext(input: {
   requestId: string;
   path: string;
   headers: Headers;
+  url?: string;
 }): RequestUsageContext {
   const userAgent = input.headers.get("user-agent") ?? "";
   const userAgentCategory = classifyUserAgent(userAgent);
   const isBot = userAgentCategory === "bot";
-  const excluded = !config.usageTrackingEnabled || isExcludedUsagePath(input.path);
+  const excluded =
+    !config.usageTrackingEnabled ||
+    input.headers.get("dnt") === "1" ||
+    input.headers.get("sec-gpc") === "1" ||
+    input.headers.get("x-loopfare-telemetry") === "off" ||
+    isExcludedUsagePath(input.path);
   const existingCookie = readCookie(input.headers.get("cookie"), "lf_session");
   const validCookie =
     existingCookie && /^[A-Za-z0-9_-]{16,128}$/.test(existingCookie)
       ? existingCookie
       : null;
   const isBrowser =
-    userAgentCategory === "desktop_browser" || userAgentCategory === "mobile_browser";
+    userAgentCategory === "desktop_browser" ||
+    userAgentCategory === "mobile_browser";
   const isBrowserPage =
     input.path === "/" ||
     input.path === "/docs" ||
+    input.path === "/demo" ||
     (input.path.startsWith("/docs/") && !input.path.endsWith(".md"));
   const sessionCookie =
     !excluded && isBrowser && isBrowserPage && !validCookie ? nanoid(32) : null;
   const rawSession = validCookie ?? sessionCookie;
-  const rawNetwork =
-    input.headers.get("cf-connecting-ip") ??
-    input.headers.get("x-real-ip") ??
-    input.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-    null;
-  const wallet = input.headers.get("x-loopfare-wallet");
+  const rawNetwork = config.trustedClientIpHeader
+    ? input.headers.get(config.trustedClientIpHeader)
+    : null;
 
   return {
     requestId: input.requestId,
     sessionId: rawSession ? hashUsageIdentifier("session", rawSession) : null,
     sessionCookie,
     networkHash: rawNetwork ? hashUsageIdentifier("network", rawNetwork) : null,
-    walletHash: wallet ? hashUsageIdentifier("wallet", wallet.toLowerCase()) : null,
+    walletHash: null,
     userAgentCategory,
     referrer: sanitizeReferrer(input.headers.get("referer")),
     isBot,
     excluded,
+    campaign: campaignFromUrl(input.url),
+    installHash: /^[a-f0-9]{32}$/.test(
+      input.headers.get("x-loopfare-install-id") ?? "",
+    )
+      ? hashUsageIdentifier(
+          "session",
+          `install:${input.headers.get("x-loopfare-install-id")}`,
+        )
+      : null,
+    testTraffic: input.headers.get("x-loopfare-traffic") === "test",
   };
 }
 
@@ -204,7 +222,7 @@ export function recordUsageEvent(input: UsageEventInput) {
       !Number.isFinite(input.amountUsd)
         ? null
         : Number(input.amountUsd.toFixed(6)),
-    metadata_json: input.metadata ? JSON.stringify(input.metadata).slice(0, 2_000) : null,
+    metadata_json: input.metadata ? JSON.stringify(input.metadata) : null,
   };
 
   const write = database.transaction(() => {
@@ -229,7 +247,10 @@ export function recordUsageEvent(input: UsageEventInput) {
 }
 
 export function getUsageMetrics(days = 30) {
-  const safeDays = Math.max(1, Math.min(config.usageRetentionDays, Math.trunc(days)));
+  const safeDays = Math.max(
+    1,
+    Math.min(config.usageRetentionDays, Math.trunc(days)),
+  );
   const end = new Date();
   const start = new Date(end);
   start.setUTCDate(start.getUTCDate() - safeDays + 1);
@@ -246,8 +267,8 @@ export function getUsageMetrics(days = 30) {
          END) AS uniqueVisitors,
          SUM(CASE WHEN event_type = 'signup' THEN 1 ELSE 0 END) AS signups,
          SUM(CASE WHEN event_type = 'project_created' THEN 1 ELSE 0 END) AS projectsCreated,
-         SUM(CASE WHEN event_type = 'wallet_configured' THEN 1 ELSE 0 END) AS walletsConfigured,
-         COUNT(DISTINCT CASE WHEN wallet_hash IS NOT NULL THEN wallet_hash END) AS activeWallets,
+         COUNT(DISTINCT CASE WHEN event_type = 'wallet_configured' THEN wallet_hash END) AS walletsConfigured,
+         COUNT(DISTINCT CASE WHEN event_type = 'payment_settled' AND metadata_json LIKE '%"mode":"x402"%' AND metadata_json LIKE '%"schemaVersion":2%' THEN wallet_hash END) AS activeWallets,
          SUM(CASE WHEN event_type = 'payment_challenge' THEN 1 ELSE 0 END) AS paymentChallenges,
          SUM(CASE WHEN event_type = 'payment_attempted' THEN 1 ELSE 0 END) AS paymentAttempts,
          SUM(CASE WHEN event_type = 'payment_settled' THEN 1 ELSE 0 END) AS paymentsSettled,
@@ -271,32 +292,32 @@ export function getUsageMetrics(days = 30) {
          END) AS proxyPaymentsSettled,
          SUM(CASE WHEN event_type = 'proxy_request' THEN 1 ELSE 0 END) AS proxyRequests,
          ROUND(COALESCE(SUM(CASE
-           WHEN event_type = 'payment_settled' THEN amount_usd ELSE 0
+           WHEN event_type = 'payment_settled' AND metadata_json LIKE '%"network":"eip155:8453"%' AND metadata_json LIKE '%"test":false%' AND route LIKE '/p/%' THEN amount_usd ELSE 0
          END), 0), 6) AS revenueUsd,
          SUM(CASE
-           WHEN event_type = 'request_completed' AND status_code >= 400 THEN 1 ELSE 0
+           WHEN event_type = 'request_completed' AND status_code >= 400 AND COALESCE(metadata_json, '') NOT LIKE '%"outcome":"expected_challenge"%' THEN 1 ELSE 0
          END) AS errorCount
        FROM usage_events
        WHERE occurred_at >= ? AND occurred_at < ? AND is_bot = 0`,
     )
     .get(startIso, endIso) as {
-      requestCount: number;
-      uniqueVisitors: number;
-      signups: number;
-      projectsCreated: number;
-      walletsConfigured: number;
-      activeWallets: number;
-      paymentChallenges: number;
-      paymentAttempts: number;
-      paymentsSettled: number;
-      x402PaymentsSettled: number;
-      devPaymentsSettled: number;
-      demoPaymentsSettled: number;
-      proxyPaymentsSettled: number;
-      proxyRequests: number;
-      revenueUsd: number;
-      errorCount: number;
-    };
+    requestCount: number;
+    uniqueVisitors: number;
+    signups: number;
+    projectsCreated: number;
+    walletsConfigured: number;
+    activeWallets: number;
+    paymentChallenges: number;
+    paymentAttempts: number;
+    paymentsSettled: number;
+    x402PaymentsSettled: number;
+    devPaymentsSettled: number;
+    demoPaymentsSettled: number;
+    proxyPaymentsSettled: number;
+    proxyRequests: number;
+    revenueUsd: number;
+    errorCount: number;
+  };
 
   const returning = database
     .prepare(
@@ -345,7 +366,7 @@ export function getUsageMetrics(days = 30) {
       `SELECT
          route,
          COUNT(*) AS requests,
-         SUM(CASE WHEN status_code >= 400 THEN 1 ELSE 0 END) AS errors,
+         SUM(CASE WHEN status_code >= 400 AND COALESCE(metadata_json, '') NOT LIKE '%"outcome":"expected_challenge"%' THEN 1 ELSE 0 END) AS errors,
          ROUND(AVG(duration_ms), 1) AS averageDurationMs,
          COUNT(DISTINCT session_id) AS uniqueVisitors
        FROM usage_events
@@ -398,11 +419,11 @@ export function getUsageMetrics(days = 30) {
          (SELECT COUNT(*) FROM payments
             WHERE status IN ('settled', 'dev_settled')
               AND path LIKE '/p/%') AS proxyPaidCalls,
-         (SELECT COUNT(DISTINCT buyer_hint) FROM payments
-            WHERE status IN ('settled', 'dev_settled')
+         (SELECT COUNT(DISTINCT network || ':' || lower(buyer_hint)) FROM payments
+            WHERE status = 'settled' AND network IS NOT NULL
               AND buyer_hint IS NOT NULL AND buyer_hint != 'dev-mode') AS uniquePaidWallets,
          (SELECT ROUND(COALESCE(SUM(CAST(REPLACE(price, '$', '') AS REAL)), 0), 6)
-            FROM payments WHERE status IN ('settled', 'dev_settled')) AS revenueUsd`,
+            FROM payments WHERE status = 'settled' AND network = 'eip155:8453' AND is_demo = 0 AND is_test = 0) AS revenueUsd`,
     )
     .get() as Record<string, number>;
 
@@ -449,11 +470,35 @@ export function getUsageMetrics(days = 30) {
       paymentsSettled,
       visitorToSignupRate: ratio(signups, uniqueVisitors),
       paymentConversionRate: ratio(paymentsSettled, paymentAttempts),
+      caveat:
+        "Aggregate ratios are not joined acquisition cohorts; visitors, accounts, and wallets are different identifiers.",
     },
     lifetime,
     daily,
     topRoutes,
     clients,
+    paymentSegments: database
+      .prepare(
+        `SELECT network, is_demo AS demo, is_test AS test, status, COUNT(*) AS calls, COALESCE(SUM(CAST(amount_atomic AS INTEGER)),0) AS amountAtomic FROM payments GROUP BY network, is_demo, is_test, status`,
+      )
+      .all(),
+    operations: {
+      unresolved: database
+        .prepare(
+          "SELECT COUNT(*) AS count, MIN(created_at) AS oldest FROM payment_operations WHERE state IN ('pending','unknown')",
+        )
+        .get(),
+      reservations: database
+        .prepare(
+          "SELECT state, COUNT(*) AS count FROM budget_reservations GROUP BY state",
+        )
+        .all(),
+    },
+    outcomes: database
+      .prepare(
+        `SELECT CASE WHEN json_valid(metadata_json) THEN json_extract(metadata_json, '$.outcome') ELSE 'legacy_unknown' END AS outcome, COUNT(*) AS requests FROM usage_events WHERE event_type = 'request_completed' AND occurred_at >= ? AND occurred_at < ? GROUP BY outcome`,
+      )
+      .all(startIso, endIso),
     dataQuality: {
       botsFiltered,
       healthAndAssetRequestsExcluded: true,
@@ -461,9 +506,31 @@ export function getUsageMetrics(days = 30) {
       rawUserAgentsStored: false,
       referrerQueryStringsStored: false,
       identifiers: "HMAC-SHA256",
+      identityCaveat:
+        "Visitor IDs, installations, accounts and wallets are not people. Historical payer hints are unverified. Revenue is seller mainnet volume, not platform fees.",
+      historicalNetwork:
+        "Rows without a network remain unknown, not mainnet revenue",
       retentionDays: config.usageRetentionDays,
     },
   };
+}
+
+function campaignFromUrl(value?: string): string | null {
+  if (!value) return null;
+  const url = new URL(value);
+  const allowed: Record<string, string[]> = {
+    utm_source: ["x", "linkedin", "community", "direct"],
+    utm_medium: ["social", "community", "outreach"],
+    utm_campaign: ["design_partners_2026q4"],
+    utm_content: ["seller_demo_v1", "buyer_guide_v1"],
+  };
+  const result = Object.fromEntries(
+    Object.entries(allowed).flatMap(([key, values]) => {
+      const value = url.searchParams.get(key);
+      return value && values.includes(value) ? [[key, value]] : [];
+    }),
+  );
+  return Object.keys(result).length ? JSON.stringify(result) : null;
 }
 
 export function hashUsageIdentifier(
@@ -485,11 +552,16 @@ export function classifyUserAgent(userAgent: string): UserAgentCategory {
     return "bot";
   }
   if (/loopfare|curl|wget|httpie|postman|insomnia/.test(value)) return "cli";
-  if (/openai|anthropic|claude|langchain|llamaindex|autogen|crewai|agent/.test(value)) {
+  if (
+    /openai|anthropic|claude|langchain|llamaindex|autogen|crewai|agent/.test(
+      value,
+    )
+  ) {
     return "agent";
   }
   if (/android|iphone|ipad|ipod|mobile/.test(value)) return "mobile_browser";
-  if (/mozilla|chrome|safari|firefox|edge|opera/.test(value)) return "desktop_browser";
+  if (/mozilla|chrome|safari|firefox|edge|opera/.test(value))
+    return "desktop_browser";
   return "api_client";
 }
 
@@ -522,6 +594,7 @@ export function isExcludedUsagePath(path: string) {
     path.startsWith("/v1/admin/metrics") ||
     path === "/favicon.ico" ||
     path === "/favicon.svg" ||
+    path === "/social.svg" ||
     path === "/robots.txt" ||
     path === "/sitemap.xml" ||
     path.startsWith("/apple-touch-icon")
@@ -535,7 +608,9 @@ function getOrCreateUsageSalt() {
   if (existing) return existing.value;
   const value = randomBytes(32).toString("hex");
   database
-    .prepare(`INSERT OR IGNORE INTO usage_config (key, value) VALUES ('identifier_salt', ?)`)
+    .prepare(
+      `INSERT OR IGNORE INTO usage_config (key, value) VALUES ('identifier_salt', ?)`,
+    )
     .run(value);
   return (
     database
@@ -553,12 +628,16 @@ function updateDailyUsage(
     wallet_hash: string | null;
     is_bot: number;
     amount_usd: number | null;
+    metadata_json: string | null;
+    route: string | null;
   },
 ) {
   if (event.is_bot === 1) return;
   const updatedAt = new Date().toISOString();
   database
-    .prepare(`INSERT OR IGNORE INTO usage_daily (day, updated_at) VALUES (?, ?)`)
+    .prepare(
+      `INSERT OR IGNORE INTO usage_daily (day, updated_at) VALUES (?, ?)`,
+    )
     .run(day, updatedAt);
 
   const increments: Record<string, number> = {
@@ -578,7 +657,7 @@ function updateDailyUsage(
 
   if (event.event_type === "request_completed") {
     increments.request_count = 1;
-    if ((event.status_code ?? 0) >= 400) increments.error_count = 1;
+    if ((event.status_code ?? 0) >= 400 && !event.metadata_json?.includes('"outcome":"expected_challenge"')) increments.error_count = 1;
   } else if (event.event_type === "signup") {
     increments.signup_count = 1;
   } else if (event.event_type === "project_created") {
@@ -589,7 +668,7 @@ function updateDailyUsage(
     increments.payment_attempt_count = 1;
   } else if (event.event_type === "payment_settled") {
     increments.payment_settled_count = 1;
-    increments.revenue_usd = event.amount_usd ?? 0;
+    if (event.metadata_json?.includes('"network":"eip155:8453"') && event.metadata_json.includes('"test":false') && event.route?.startsWith("/p/")) increments.revenue_usd = event.amount_usd ?? 0;
   } else if (event.event_type === "proxy_request") {
     increments.proxy_request_count = 1;
   }
@@ -628,10 +707,14 @@ function updateDailyUsage(
 
   const changed = Object.entries(increments).filter(([, value]) => value !== 0);
   if (changed.length === 0) {
-    database.prepare(`UPDATE usage_daily SET updated_at = ? WHERE day = ?`).run(updatedAt, day);
+    database
+      .prepare(`UPDATE usage_daily SET updated_at = ? WHERE day = ?`)
+      .run(updatedAt, day);
     return;
   }
-  const assignments = changed.map(([column]) => `${column} = ${column} + @${column}`);
+  const assignments = changed.map(
+    ([column]) => `${column} = ${column} + @${column}`,
+  );
   database
     .prepare(
       `UPDATE usage_daily
@@ -678,10 +761,10 @@ function refreshDailyUsage(day: string) {
          SUM(CASE WHEN event_type = 'proxy_request' THEN 1 ELSE 0 END)
            AS proxy_request_count,
          ROUND(COALESCE(SUM(CASE
-           WHEN event_type = 'payment_settled' THEN amount_usd ELSE 0
+           WHEN event_type = 'payment_settled' AND metadata_json LIKE '%"network":"eip155:8453"%' AND metadata_json LIKE '%"test":false%' AND route LIKE '/p/%' THEN amount_usd ELSE 0
          END), 0), 6) AS revenue_usd,
          SUM(CASE
-           WHEN event_type = 'request_completed' AND status_code >= 400 THEN 1 ELSE 0
+           WHEN event_type = 'request_completed' AND status_code >= 400 AND COALESCE(metadata_json, '') NOT LIKE '%"outcome":"expected_challenge"%' THEN 1 ELSE 0
          END) AS error_count
        FROM usage_events
        WHERE occurred_at >= ? AND occurred_at < ? AND is_bot = 0`,
@@ -740,7 +823,9 @@ function pruneUsageEvents(day: string) {
   lastPrunedDay = day;
   const cutoff = new Date(`${day}T00:00:00.000Z`);
   cutoff.setUTCDate(cutoff.getUTCDate() - config.usageRetentionDays);
-  database.prepare(`DELETE FROM usage_events WHERE occurred_at < ?`).run(cutoff.toISOString());
+  database
+    .prepare(`DELETE FROM usage_events WHERE occurred_at < ?`)
+    .run(cutoff.toISOString());
   database
     .prepare(`DELETE FROM usage_daily_identities WHERE day < ?`)
     .run(cutoff.toISOString().slice(0, 10));
@@ -763,4 +848,29 @@ function readCookie(header: string | null, name: string) {
 
 function ratio(numerator: number, denominator: number) {
   return denominator > 0 ? Number((numerator / denominator).toFixed(4)) : 0;
+}
+
+// One-time correction of retained history. Do not invent network/payer data for old rows.
+if (
+  !database
+    .prepare("SELECT 1 FROM usage_config WHERE key='metrics_schema_v2'")
+    .get()
+) {
+  database.transaction(() => {
+    // Older aggregate-only volume has no verifiable network and is not commercial volume.
+    database.exec("UPDATE usage_daily SET revenue_usd = 0");
+    database.exec(`UPDATE usage_events SET metadata_json = '{"outcome":"expected_challenge","schemaVersion":2,"historical":true}'
+      WHERE event_type='request_completed' AND status_code=402 AND route='/demo/v1/fortune'
+      AND EXISTS (SELECT 1 FROM usage_events AS challenge WHERE challenge.request_id=usage_events.request_id AND challenge.event_type='payment_challenge')
+      AND NOT EXISTS (SELECT 1 FROM usage_events AS attempt WHERE attempt.request_id=usage_events.request_id AND attempt.event_type='payment_attempted');`);
+    const days = database
+      .prepare(
+        "SELECT DISTINCT substr(occurred_at,1,10) AS day FROM usage_events",
+      )
+      .all() as { day: string }[];
+    for (const { day } of days) refreshDailyUsage(day);
+    database
+      .prepare("INSERT INTO usage_config VALUES ('metrics_schema_v2', ?)")
+      .run(new Date().toISOString());
+  })();
 }

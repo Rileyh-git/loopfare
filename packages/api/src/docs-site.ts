@@ -6,11 +6,23 @@ export type PublicDoc = {
   slug: string;
   title: string;
   description: string;
-  category: "Start here" | "Use Loopfare" | "Build with Loopfare" | "Operate Loopfare";
+  category:
+    | "Start here"
+    | "Use Loopfare"
+    | "Build with Loopfare"
+    | "Operate Loopfare";
   file: string;
 };
 
 export const publicDocs: readonly PublicDoc[] = [
+  {
+    slug: "hardening",
+    title: "Safety update and rollout checklist",
+    description:
+      "Wallet safety, signed budgets, verified origins, and migration requirements.",
+    category: "Operate Loopfare",
+    file: "docs/HARDENING.md",
+  },
   {
     slug: "quickstart",
     title: "Quickstart",
@@ -21,134 +33,162 @@ export const publicDocs: readonly PublicDoc[] = [
   {
     slug: "concepts",
     title: "Core concepts",
-    description: "Projects, routes, x402 challenges, settlement, wallets, and budgets.",
+    description:
+      "Projects, routes, x402 challenges, settlement, wallets, and budgets.",
     category: "Start here",
     file: "docs/CONCEPTS.md",
   },
   {
     slug: "faq",
     title: "FAQ",
-    description: "Short answers about payments, custody, testnet, pricing, and limits.",
+    description:
+      "Short answers about payments, custody, testnet, pricing, and limits.",
     category: "Start here",
     file: "docs/FAQ.md",
   },
   {
     slug: "glossary",
     title: "Glossary",
-    description: "Definitions for the payment and API terms used throughout Loopfare.",
+    description:
+      "Definitions for the payment and API terms used throughout Loopfare.",
     category: "Start here",
     file: "docs/GLOSSARY.md",
   },
   {
     slug: "support",
     title: "Support",
-    description: "Where to ask questions, report bugs, and disclose security issues.",
+    description:
+      "Where to ask questions, report bugs, and disclose security issues.",
     category: "Start here",
     file: "docs/SUPPORT.md",
   },
   {
     slug: "seller-manual",
     title: "Seller manual",
-    description: "The complete guide to accounts, projects, routes, pricing, and earnings.",
+    description:
+      "The complete guide to accounts, projects, routes, pricing, and earnings.",
     category: "Use Loopfare",
     file: "docs/SELLER_MANUAL.md",
   },
   {
     slug: "buyer-manual",
     title: "Buyer manual",
-    description: "Wallet safety, USDC funding, daily budgets, and paid agent requests.",
+    description:
+      "Wallet safety, USDC funding, daily budgets, and paid agent requests.",
     category: "Use Loopfare",
     file: "docs/BUYER_MANUAL.md",
   },
   {
     slug: "cli-reference",
     title: "CLI reference",
-    description: "Every command, option, environment override, and JSON output workflow.",
+    description:
+      "Every command, option, environment override, and JSON output workflow.",
     category: "Use Loopfare",
     file: "docs/CLI_REFERENCE.md",
   },
   {
     slug: "troubleshooting",
     title: "Troubleshooting",
-    description: "Diagnose authentication, route, budget, facilitator, and deployment errors.",
+    description:
+      "Diagnose authentication, route, budget, facilitator, and deployment errors.",
     category: "Use Loopfare",
     file: "docs/TROUBLESHOOTING.md",
   },
   {
     slug: "api-reference",
     title: "API reference",
-    description: "HTTP endpoints, schemas, authentication, headers, examples, and limits.",
+    description:
+      "HTTP endpoints, schemas, authentication, headers, examples, and limits.",
     category: "Build with Loopfare",
     file: "docs/API_REFERENCE.md",
   },
   {
     slug: "error-reference",
     title: "Error reference",
-    description: "Status codes and stable error identifiers with recommended responses.",
+    description:
+      "Status codes and stable error identifiers with recommended responses.",
     category: "Build with Loopfare",
     file: "docs/ERROR_REFERENCE.md",
   },
   {
     slug: "architecture",
     title: "Architecture",
-    description: "Components, data model, paid request lifecycle, and trust boundaries.",
+    description:
+      "Components, data model, paid request lifecycle, and trust boundaries.",
     category: "Build with Loopfare",
     file: "docs/ARCHITECTURE.md",
   },
   {
     slug: "agent-integration",
     title: "Agent integration",
-    description: "Make Loopfare discoverable and safe for autonomous software buyers.",
+    description:
+      "Make Loopfare discoverable and safe for autonomous software buyers.",
     category: "Build with Loopfare",
     file: "docs/AGENT_INTEGRATION.md",
   },
   {
     slug: "self-hosting",
     title: "Self-hosting",
-    description: "Run Loopfare locally or deploy it with persistent storage on Railway.",
+    description:
+      "Run Loopfare locally or deploy it with persistent storage on Railway.",
     category: "Operate Loopfare",
     file: "docs/SELF_HOSTING.md",
   },
   {
     slug: "operations",
     title: "Operations manual",
-    description: "Monitoring, backups, restore drills, incidents, scaling, and rollback.",
+    description:
+      "Monitoring, backups, restore drills, incidents, scaling, and rollback.",
     category: "Operate Loopfare",
     file: "docs/OPERATIONS_MANUAL.md",
   },
   {
     slug: "security-model",
     title: "Security model",
-    description: "Threat model, SSRF controls, secret handling, and residual risks.",
+    description:
+      "Threat model, SSRF controls, secret handling, and residual risks.",
     category: "Operate Loopfare",
     file: "docs/SECURITY_MODEL.md",
   },
   {
     slug: "production-checklist",
     title: "Production checklist",
-    description: "Release gates for testnet beta and the separate Base mainnet launch.",
+    description:
+      "Release gates for testnet beta and the separate Base mainnet launch.",
     category: "Operate Loopfare",
     file: "docs/PRODUCTION.md",
   },
   {
     slug: "contributing",
     title: "Contributing",
-    description: "Development setup, code standards, testing, and release workflow.",
+    description:
+      "Development setup, code standards, testing, and release workflow.",
     category: "Operate Loopfare",
     file: "docs/CONTRIBUTING.md",
   },
   {
     slug: "release-notes",
     title: "Release notes",
-    description: "Public beta changes, compatibility notes, and upgrade guidance.",
+    description:
+      "Public beta changes, compatibility notes, and upgrade guidance.",
     category: "Operate Loopfare",
     file: "docs/RELEASE_NOTES.md",
   },
 ];
 
-const categories = ["Start here", "Use Loopfare", "Build with Loopfare", "Operate Loopfare"] as const;
-const fileToSlug = new Map(publicDocs.map((doc) => [doc.file.split("/").pop()!.toLowerCase(), doc.slug]));
-const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
+const categories = [
+  "Start here",
+  "Use Loopfare",
+  "Build with Loopfare",
+  "Operate Loopfare",
+] as const;
+const fileToSlug = new Map(
+  publicDocs.map((doc) => [doc.file.split("/").pop()!.toLowerCase(), doc.slug]),
+);
+const projectRoot = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  "../../..",
+);
 
 export function findPublicDoc(slug: string): PublicDoc | undefined {
   return publicDocs.find((doc) => doc.slug === slug);
@@ -160,11 +200,18 @@ export function publicDocMarkdown(slug: string): string | undefined {
   return readFileSync(resolve(projectRoot, doc.file), "utf8");
 }
 
-export function documentationHtml(options: { publicUrl: string; slug?: string }): string | undefined {
+export function documentationHtml(options: {
+  publicUrl: string;
+  slug?: string;
+}): string | undefined {
   const selected = options.slug ? findPublicDoc(options.slug) : undefined;
   if (options.slug && !selected) return undefined;
-  const title = selected ? `${selected.title} · Loopfare documentation` : "Loopfare documentation";
-  const description = selected?.description ?? "Guides, manuals, API reference, and operator documentation for Loopfare.";
+  const title = selected
+    ? `${selected.title} · Loopfare documentation`
+    : "Loopfare documentation";
+  const description =
+    selected?.description ??
+    "Guides, manuals, API reference, and operator documentation for Loopfare.";
   const canonical = `${options.publicUrl}/docs${selected ? `/${selected.slug}` : ""}`;
 
   return `<!doctype html>
@@ -223,10 +270,14 @@ function landingHtml(): string {
   </section>
   ${categories
     .map(
-      (category) => `<section class="doc-group"><h2>${category}</h2><div class="doc-cards">${publicDocs
-        .filter((doc) => doc.category === category)
-        .map((doc) => `<a href="/docs/${doc.slug}"><strong>${escapeHtml(doc.title)}</strong><p>${escapeHtml(doc.description)}</p><span>Read guide →</span></a>`)
-        .join("")}</div></section>`,
+      (category) =>
+        `<section class="doc-group"><h2>${category}</h2><div class="doc-cards">${publicDocs
+          .filter((doc) => doc.category === category)
+          .map(
+            (doc) =>
+              `<a href="/docs/${doc.slug}"><strong>${escapeHtml(doc.title)}</strong><p>${escapeHtml(doc.description)}</p><span>Read guide →</span></a>`,
+          )
+          .join("")}</div></section>`,
     )
     .join("")}`;
 }
@@ -244,10 +295,14 @@ function articleHtml(doc: PublicDoc): string {
 function documentationNavigation(active?: string): string {
   return `<a class="nav-home${active ? "" : " current"}" href="/docs">Documentation home</a>${categories
     .map(
-      (category) => `<div class="nav-group"><h2>${category}</h2>${publicDocs
-        .filter((doc) => doc.category === category)
-        .map((doc) => `<a${doc.slug === active ? ' class="current" aria-current="page"' : ""} href="/docs/${doc.slug}">${escapeHtml(doc.title)}</a>`)
-        .join("")}</div>`,
+      (category) =>
+        `<div class="nav-group"><h2>${category}</h2>${publicDocs
+          .filter((doc) => doc.category === category)
+          .map(
+            (doc) =>
+              `<a${doc.slug === active ? ' class="current" aria-current="page"' : ""} href="/docs/${doc.slug}">${escapeHtml(doc.title)}</a>`,
+          )
+          .join("")}</div>`,
     )
     .join("")}`;
 }
@@ -258,16 +313,22 @@ function renderMarkdown(markdown: string): string {
   let index = 0;
   while (index < lines.length) {
     const line = lines[index]!;
-    if (!line.trim()) { index += 1; continue; }
+    if (!line.trim()) {
+      index += 1;
+      continue;
+    }
 
     const fence = line.match(/^```([\w+-]*)\s*$/);
     if (fence) {
       const language = fence[1] || "text";
       const code: string[] = [];
       index += 1;
-      while (index < lines.length && !/^```\s*$/.test(lines[index]!)) code.push(lines[index++]!);
+      while (index < lines.length && !/^```\s*$/.test(lines[index]!))
+        code.push(lines[index++]!);
       index += 1;
-      output.push(`<div class="code-block"><div><span>${escapeHtml(language)}</span><button type="button" data-copy>Copy</button></div><pre><code>${escapeHtml(code.join("\n"))}</code></pre></div>`);
+      output.push(
+        `<div class="code-block"><div><span>${escapeHtml(language)}</span><button type="button" data-copy>Copy</button></div><pre><code>${escapeHtml(code.join("\n"))}</code></pre></div>`,
+      );
       continue;
     }
 
@@ -275,19 +336,36 @@ function renderMarkdown(markdown: string): string {
     if (heading) {
       const level = Math.min(6, heading[1]!.length + 1);
       const text = heading[2]!.replace(/\s+#+$/, "");
-      output.push(`<h${level} id="${headingId(text)}">${inlineMarkdown(text)}</h${level}>`);
+      output.push(
+        `<h${level} id="${headingId(text)}">${inlineMarkdown(text)}</h${level}>`,
+      );
       index += 1;
       continue;
     }
 
-    if (/^---+$/.test(line.trim())) { output.push("<hr>"); index += 1; continue; }
+    if (/^---+$/.test(line.trim())) {
+      output.push("<hr>");
+      index += 1;
+      continue;
+    }
 
-    if (line.includes("|") && index + 1 < lines.length && /^\s*\|?\s*:?-{3,}/.test(lines[index + 1]!)) {
+    if (
+      line.includes("|") &&
+      index + 1 < lines.length &&
+      /^\s*\|?\s*:?-{3,}/.test(lines[index + 1]!)
+    ) {
       const headers = tableCells(line);
       index += 2;
       const rows: string[][] = [];
-      while (index < lines.length && lines[index]!.includes("|") && lines[index]!.trim()) rows.push(tableCells(lines[index++]!));
-      output.push(`<div class="table-wrap"><table><thead><tr>${headers.map((cell) => `<th>${inlineMarkdown(cell)}</th>`).join("")}</tr></thead><tbody>${rows.map((row) => `<tr>${row.map((cell) => `<td>${inlineMarkdown(cell)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`);
+      while (
+        index < lines.length &&
+        lines[index]!.includes("|") &&
+        lines[index]!.trim()
+      )
+        rows.push(tableCells(lines[index++]!));
+      output.push(
+        `<div class="table-wrap"><table><thead><tr>${headers.map((cell) => `<th>${inlineMarkdown(cell)}</th>`).join("")}</tr></thead><tbody>${rows.map((row) => `<tr>${row.map((cell) => `<td>${inlineMarkdown(cell)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`,
+      );
       continue;
     }
 
@@ -298,23 +376,34 @@ function renderMarkdown(markdown: string): string {
       while (index < lines.length) {
         const match = lines[index]!.match(pattern);
         if (!match) break;
-        items.push(match[1]!); index += 1;
+        items.push(match[1]!);
+        index += 1;
       }
       const tag = ordered ? "ol" : "ul";
-      output.push(`<${tag}>${items.map((item) => `<li>${inlineMarkdown(item)}</li>`).join("")}</${tag}>`);
+      output.push(
+        `<${tag}>${items.map((item) => `<li>${inlineMarkdown(item)}</li>`).join("")}</${tag}>`,
+      );
       continue;
     }
 
     if (line.startsWith(">")) {
       const quote: string[] = [];
-      while (index < lines.length && lines[index]!.startsWith(">")) quote.push(lines[index++]!.replace(/^>\s?/, ""));
-      output.push(`<blockquote>${inlineMarkdown(quote.join(" "))}</blockquote>`);
+      while (index < lines.length && lines[index]!.startsWith(">"))
+        quote.push(lines[index++]!.replace(/^>\s?/, ""));
+      output.push(
+        `<blockquote>${inlineMarkdown(quote.join(" "))}</blockquote>`,
+      );
       continue;
     }
 
     const paragraph: string[] = [line.trim()];
     index += 1;
-    while (index < lines.length && lines[index]!.trim() && !isBlockStart(lines, index)) paragraph.push(lines[index++]!.trim());
+    while (
+      index < lines.length &&
+      lines[index]!.trim() &&
+      !isBlockStart(lines, index)
+    )
+      paragraph.push(lines[index++]!.trim());
     output.push(`<p>${inlineMarkdown(paragraph.join(" "))}</p>`);
   }
   return output.join("\n");
@@ -322,42 +411,90 @@ function renderMarkdown(markdown: string): string {
 
 function isBlockStart(lines: string[], index: number): boolean {
   const line = lines[index]!;
-  return /^(#{1,6})\s+|^```|^\s*[-*+]\s+|^\s*\d+\.\s+|^>|^---+$/.test(line) ||
-    (line.includes("|") && index + 1 < lines.length && /^\s*\|?\s*:?-{3,}/.test(lines[index + 1]!));
+  return (
+    /^(#{1,6})\s+|^```|^\s*[-*+]\s+|^\s*\d+\.\s+|^>|^---+$/.test(line) ||
+    (line.includes("|") &&
+      index + 1 < lines.length &&
+      /^\s*\|?\s*:?-{3,}/.test(lines[index + 1]!))
+  );
 }
 
 function inlineMarkdown(input: string): string {
   const tokens: string[] = [];
-  const token = (html: string) => { const key = `\u0000${tokens.length}\u0000`; tokens.push(html); return key; };
-  let value = input.replace(/`([^`]+)`/g, (_match, code: string) => token(`<code>${escapeHtml(code)}</code>`));
-  value = value.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_match, label: string, href: string) => {
-    const safeHref = documentationHref(href.trim());
-    return token(`<a href="${escapeHtml(safeHref)}">${escapeHtml(label)}</a>`);
-  });
+  const token = (html: string) => {
+    const key = `\u0000${tokens.length}\u0000`;
+    tokens.push(html);
+    return key;
+  };
+  let value = input.replace(/`([^`]+)`/g, (_match, code: string) =>
+    token(`<code>${escapeHtml(code)}</code>`),
+  );
+  value = value.replace(
+    /\[([^\]]+)\]\(([^)]+)\)/g,
+    (_match, label: string, href: string) => {
+      const safeHref = documentationHref(href.trim());
+      return token(
+        `<a href="${escapeHtml(safeHref)}">${escapeHtml(label)}</a>`,
+      );
+    },
+  );
   value = escapeHtml(value)
     .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
     .replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, "<em>$1</em>");
-  return value.replace(/\u0000(\d+)\u0000/g, (_match, position: string) => tokens[Number(position)] ?? "");
+  return value.replace(
+    /\u0000(\d+)\u0000/g,
+    (_match, position: string) => tokens[Number(position)] ?? "",
+  );
 }
 
 function documentationHref(href: string): string {
   if (/^(https?:\/\/|mailto:|\/|#)/i.test(href)) return href;
-  const file = href.replace(/^\.\//, "").split("#")[0]!.split("/").pop()!.toLowerCase();
-  const anchor = href.includes("#") ? `#${href.split("#").slice(1).join("#")}` : "";
+  const file = href
+    .replace(/^\.\//, "")
+    .split("#")[0]!
+    .split("/")
+    .pop()!
+    .toLowerCase();
+  const anchor = href.includes("#")
+    ? `#${href.split("#").slice(1).join("#")}`
+    : "";
   const slug = fileToSlug.get(file);
-  return slug ? `/docs/${slug}${anchor}` : "#";
+  if (slug) return `/docs/${slug}${anchor}`;
+  if (["readme.md", "security.md", "contributing.md", "license"].includes(file))
+    return `https://github.com/Rileyh-git/loopfare/blob/main/${file === "license" ? "LICENSE" : file.toUpperCase().replace(".MD", ".md")}${anchor}`;
+  return "/docs";
 }
 
 function tableCells(line: string): string[] {
-  return line.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((cell) => cell.trim());
+  return (
+    line
+      .trim()
+      .replace(/^\|/, "")
+      .replace(/\|$/, "")
+      .match(/(?:`[^`]*`|\\\||[^|])+/g) ?? []
+  ).map((cell) => cell.trim().replace(/\\\|/g, "|"));
 }
 
 function headingId(value: string): string {
-  return value.toLowerCase().replace(/`/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  return value
+    .toLowerCase()
+    .replace(/`/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
 }
 
 function escapeHtml(value: string): string {
-  return value.replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" })[character]!);
+  return value.replace(
+    /[&<>"']/g,
+    (character) =>
+      ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#039;",
+      })[character]!,
+  );
 }
 
 const logoSvg = `<svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#17151f"/><path d="M8 11h10.5a5 5 0 1 1 0 10H13" fill="none" stroke="#c8ff68" stroke-width="3" stroke-linecap="round"/><path d="m8 16 5-4v8z" fill="#f5f3ef"/></svg>`;

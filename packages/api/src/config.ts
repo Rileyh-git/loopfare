@@ -32,7 +32,9 @@ const booleanFromEnv = z
   .transform((value) => value === "true");
 
 const envSchema = z.object({
-  NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+  NODE_ENV: z
+    .enum(["development", "test", "production"])
+    .default("development"),
   PORT: z.coerce.number().int().min(1).max(65_535).default(4021),
   HOST: z.string().min(1).default("0.0.0.0"),
   PUBLIC_URL: z.string().url().optional(),
@@ -40,13 +42,17 @@ const envSchema = z.object({
   DATABASE_PATH: z.string().min(1).default("./data/loopfare.db"),
   LOOPFARE_NETWORK: z.enum(["base-sepolia", "base"]).default("base-sepolia"),
   FACILITATOR_URL: z.string().url().default("https://x402.org/facilitator"),
+  FACILITATOR_API_KEY: z.string().min(16).optional(),
   DEMO_PAY_TO: z
     .string()
     .regex(/^0x[a-fA-F0-9]{40}$/, "DEMO_PAY_TO must be an EVM address")
     .default("0x0000000000000000000000000000000000000000"),
   DEMO_PRICE: z
     .string()
-    .regex(/^\$(?:0|[1-9]\d*)(?:\.\d{1,6})?$/, "DEMO_PRICE must look like $0.001")
+    .regex(
+      /^\$(?:0|[1-9]\d*)(?:\.\d{1,6})?$/,
+      "DEMO_PRICE must look like $0.001",
+    )
     .default("$0.001"),
   LOOPFARE_DEV_MODE: booleanFromEnv,
   SIGNUP_ENABLED: z
@@ -54,6 +60,13 @@ const envSchema = z.object({
     .default("true")
     .transform((value) => value === "true"),
   ALLOW_PRIVATE_ORIGINS: booleanFromEnv,
+  ORIGIN_ENCRYPTION_KEY: z
+    .string()
+    .regex(/^[a-fA-F0-9]{64}$/)
+    .optional(),
+  TRUSTED_CLIENT_IP_HEADER: z
+    .enum(["x-real-ip", "cf-connecting-ip"])
+    .optional(),
   ADMIN_API_KEY: z.string().min(24).optional(),
   METRICS_API_KEY: z.string().min(32).optional(),
   USAGE_TRACKING_ENABLED: z
@@ -62,7 +75,12 @@ const envSchema = z.object({
     .transform((value) => value === "true"),
   USAGE_RETENTION_DAYS: z.coerce.number().int().min(30).max(3_650).default(365),
   CORS_ORIGINS: z.string().optional(),
-  PROXY_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(120_000).default(30_000),
+  PROXY_TIMEOUT_MS: z.coerce
+    .number()
+    .int()
+    .min(1_000)
+    .max(120_000)
+    .default(30_000),
   MAX_REQUEST_BODY_BYTES: z.coerce
     .number()
     .int()
@@ -80,17 +98,28 @@ const envSchema = z.object({
 const parsed = envSchema.safeParse(process.env);
 if (!parsed.success) {
   const details = parsed.error.issues
-    .map((issue) => `${issue.path.join(".") || "environment"}: ${issue.message}`)
+    .map(
+      (issue) => `${issue.path.join(".") || "environment"}: ${issue.message}`,
+    )
     .join("; ");
   throw new Error(`Invalid Loopfare configuration: ${details}`);
 }
 
 const env = parsed.data;
+if (env.FACILITATOR_API_KEY && !env.FACILITATOR_URL.startsWith("https://"))
+  throw new Error("Authenticated facilitators require HTTPS");
 if (env.NODE_ENV === "production" && env.LOOPFARE_DEV_MODE) {
   throw new Error("LOOPFARE_DEV_MODE must be false in production");
 }
-if (env.LOOPFARE_NETWORK === "base" && env.FACILITATOR_URL.includes("x402.org")) {
-  throw new Error("Base mainnet requires a mainnet-capable facilitator, not x402.org");
+if (env.NODE_ENV === "production" && env.ALLOW_PRIVATE_ORIGINS)
+  throw new Error("ALLOW_PRIVATE_ORIGINS must be false in production");
+if (
+  env.LOOPFARE_NETWORK === "base" &&
+  env.FACILITATOR_URL.includes("x402.org")
+) {
+  throw new Error(
+    "Base mainnet requires a mainnet-capable facilitator, not x402.org",
+  );
 }
 
 const publicUrl = (
@@ -115,17 +144,23 @@ export const config = {
   network: env.LOOPFARE_NETWORK,
   networkCaip2: NETWORK_CAIP2[env.LOOPFARE_NETWORK],
   facilitatorUrl: env.FACILITATOR_URL,
+  facilitatorApiKey: env.FACILITATOR_API_KEY,
   demoPayTo: env.DEMO_PAY_TO as `0x${string}`,
   demoPrice: env.DEMO_PRICE,
   demoEnabled: !/^0x0{40}$/i.test(env.DEMO_PAY_TO),
   devMode: env.LOOPFARE_DEV_MODE,
   signupEnabled: env.SIGNUP_ENABLED,
   allowPrivateOrigins: env.ALLOW_PRIVATE_ORIGINS,
+  originEncryptionKey: env.ORIGIN_ENCRYPTION_KEY,
+  trustedClientIpHeader: env.TRUSTED_CLIENT_IP_HEADER,
   adminApiKey: env.ADMIN_API_KEY,
   metricsApiKey: env.METRICS_API_KEY,
   usageTrackingEnabled: env.USAGE_TRACKING_ENABLED,
   usageRetentionDays: env.USAGE_RETENTION_DAYS,
-  corsOrigins: configuredOrigins.length > 0 ? configuredOrigins : [new URL(publicUrl).origin],
+  corsOrigins:
+    configuredOrigins.length > 0
+      ? configuredOrigins
+      : [new URL(publicUrl).origin],
   proxyTimeoutMs: env.PROXY_TIMEOUT_MS,
   maxRequestBodyBytes: env.MAX_REQUEST_BODY_BYTES,
   maxProxyResponseBytes: env.MAX_PROXY_RESPONSE_BYTES,

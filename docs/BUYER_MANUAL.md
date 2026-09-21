@@ -1,5 +1,7 @@
 # Loopfare buyer manual
 
+> See the [safety update](HARDENING.md) for explicit wallet replacement, origin-scoped credentials, signed budget authorization, network/price policies, and durable unknown reservations. Do not clear an unknown payment to bypass a spending limit.
+
 Loopfare lets a command-line client pay an x402 v2 endpoint per request. The CLI receives the endpoint's HTTP 402 challenge, selects a supported USDC payment requirement, signs it with a local EVM key, retries the request, and reports the response and settlement status.
 
 The current public beta is **Base Sepolia** (`eip155:84532`). Base Sepolia assets have no real-world value. Start with a fresh test-only wallet and never import a wallet that holds meaningful mainnet assets just to evaluate the beta.
@@ -236,7 +238,7 @@ Inspect `loopfare budget show`. Increase the limit with `budget set`, wait for t
 
 ### `Invalid budget token`
 
-The stored token does not own the server-side budget for that wallet. This can happen after copying configurations between machines or changing wallets. The current API does not provide token recovery or takeover; preserve the original token and avoid creating multiple independent configurations for one wallet.
+The stored token is not authorized for that wallet's server-side budget. Use the updated CLI's `budget set` with the wallet key to sign an ownership challenge and rotate the token without resetting spend. Keep one shared budget configuration per wallet; local application caps are not on-chain custody controls.
 
 ### `Loopfare CLI only pays USDC on Base or Base Sepolia`
 

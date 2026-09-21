@@ -20,7 +20,9 @@ type RoutePaymentOptions = {
 
 export function publicResourceUrl(path: string, search = ""): string {
   if (!path.startsWith("/") || path.startsWith("//")) {
-    throw new Error("Public resource path must be an absolute application path");
+    throw new Error(
+      "Public resource path must be an absolute application path",
+    );
   }
   if (search && !search.startsWith("?")) {
     throw new Error("Public resource search must be empty or start with ?");
@@ -32,6 +34,14 @@ export function getResourceServer(): x402ResourceServer {
   if (resourceServer) return resourceServer;
   const facilitatorClient = new HTTPFacilitatorClient({
     url: config.facilitatorUrl,
+    createAuthHeaders: config.facilitatorApiKey
+      ? async () => {
+          const headers = {
+            Authorization: `Bearer ${config.facilitatorApiKey}`,
+          };
+          return { verify: headers, settle: headers, supported: headers };
+        }
+      : undefined,
   });
   resourceServer = new x402ResourceServer(facilitatorClient).register(
     config.networkCaip2 as Caip2,
@@ -64,7 +74,9 @@ export function buildDemoPaymentMiddleware(): MiddlewareHandler {
   return paymentMiddleware(routes, server);
 }
 
-export function buildRoutePaymentRoutes(opts: RoutePaymentOptions): RoutesConfig {
+export function buildRoutePaymentRoutes(
+  opts: RoutePaymentOptions,
+): RoutesConfig {
   const key = `${opts.method.toUpperCase()} ${opts.path}`;
   return {
     [key]: {
@@ -83,17 +95,24 @@ export function buildRoutePaymentRoutes(opts: RoutePaymentOptions): RoutesConfig
   };
 }
 
-export function buildRoutePaymentMiddleware(opts: RoutePaymentOptions): MiddlewareHandler {
+export function buildRoutePaymentMiddleware(
+  opts: RoutePaymentOptions,
+): MiddlewareHandler {
   const server = getResourceServer();
   const routes = buildRoutePaymentRoutes(opts);
   return paymentMiddleware(routes, server);
 }
 
-export function isDevPaymentAuthorized(headerValue: string | undefined, price: string): boolean {
+export function isDevPaymentAuthorized(
+  headerValue: string | undefined,
+  price: string,
+): boolean {
   if (!config.devMode) return false;
   if (!headerValue) return false;
   // LOOPFARE-DEV-PAYMENT: <price> or "ok"
   const v = headerValue.trim().toLowerCase();
   if (v === "ok" || v === "1" || v === "true") return true;
-  return v === price.toLowerCase() || v === price.replace(/^\$/, "").toLowerCase();
+  return (
+    v === price.toLowerCase() || v === price.replace(/^\$/, "").toLowerCase()
+  );
 }

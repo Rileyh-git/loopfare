@@ -1,6 +1,6 @@
 {
   "name": "loopfare",
-  "version": "0.2.7",
+  "version": "0.3.0",
   "private": true,
   "description": "Charge AI agents per request — x402 paywall SaaS for Base",
   "workspaces": [
@@ -22,6 +22,6 @@
     "node": ">=22"
   },
   "overrides": {
-    "fast-uri": "3.1.5"
+    "fast-uri": "3.1.6"
   }
 }

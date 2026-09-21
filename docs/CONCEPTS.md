@@ -50,7 +50,7 @@ Route matching happens after the `/p/<project>` prefix is removed. Exact paths, 
 4. The buyer selects a supported requirement, signs a payment, and retries with `PAYMENT-SIGNATURE`.
 5. The facilitator verifies the payment.
 6. Loopfare atomically reserves any compatible server budget and sends the sanitized request to the origin.
-7. If the origin fails with status 400 or higher, x402 cancels settlement and the budget reservation is refunded.
+7. If the origin fails with status 400 or higher, x402 does not settle. The application conservatively retains unconfirmed real-payment reservations until reconciled.
 8. If the origin succeeds, the facilitator settles the payment.
 9. Loopfare returns the origin response with `PAYMENT-RESPONSE` and records the payment.
 
@@ -95,7 +95,7 @@ The CLI has two cooperative safety layers:
 - a local daily counter; and
 - a token-protected budget record on compatible Loopfare servers.
 
-The server performs an atomic reservation before forwarding a verified request and refunds it if origin handling or settlement fails. The `X-Loopfare-Wallet` value is still a client-supplied hint, not cryptographically bound to the signer, and third-party x402 servers do not honor Loopfare budget headers.
+The server persists a reservation before forwarding a verified request. Unknown outcomes stay counted across UTC rollover. Budget setup requires signed wallet ownership, but compatible request headers remain an optional application control; other x402 servers do not honor them. Settled payer metrics use the facilitator receipt, not the wallet header.
 
 Budgets are not a substitute for wallet policy, limited balances, or transaction authorization controls.
 

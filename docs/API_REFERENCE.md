@@ -1,6 +1,8 @@
 # Loopfare API reference
 
-This reference documents the public HTTP contract for Loopfare `0.2.7` as implemented in this repository. Loopfare combines a seller management API, a buyer budget API, an x402 v2 paid reverse proxy, public service metadata, and a paid demo.
+> For this checkout, the [safety update contract](HARDENING.md) adds signed budget challenges and per-route origin credentials/verification. Non-dev routes remain unavailable until verified. Paid writes are disabled. Older version examples below must be adapted to these requirements.
+
+This reference documents the public HTTP contract for Loopfare `0.3.0` as implemented in this repository. Loopfare combines a seller management API, a buyer budget API, an x402 v2 paid reverse proxy, public service metadata, and a paid demo.
 
 ## Base URL and versioning
 
@@ -14,7 +16,7 @@ Seller and buyer management endpoints are under `/v1`. The paid proxy and public
 
 | Property | Value |
 | --- | --- |
-| Loopfare application version | `0.2.7` |
+| Loopfare application version | `0.3.0` |
 | Management API version | `v1` |
 | Payment protocol | x402 v2 |
 | Payment scheme | `exact` on EVM |
@@ -95,7 +97,7 @@ X-Loopfare-Budget-Token: lb_YOUR_TOKEN
 Authorization: Bearer lb_YOUR_TOKEN
 ```
 
-The dedicated header takes precedence when both are present. Tokens must contain 24 to 200 characters. The first token used to create a budget claims that wallet's budget record; later updates require the same token.
+The dedicated header takes precedence when both are present. Tokens must contain 24 to 200 characters. Budget setup and token rotation require a wallet-signed, single-use, domain-bound challenge; see the safety update contract.
 
 ### Limits
 
@@ -263,7 +265,7 @@ curl https://YOUR_LOOPFARE_HOST/api
 ```json
 {
   "name": "loopfare",
-  "version": "0.2.7",
+  "version": "0.3.0",
   "tagline": "Make every API call pay its fare",
   "network": "base-sepolia",
   "networkCaip2": "eip155:84532",
@@ -295,7 +297,7 @@ Returns an expanded health snapshot.
 {
   "ok": true,
   "service": "loopfare",
-  "version": "0.2.7",
+  "version": "0.3.0",
   "network": "base-sepolia",
   "demoEnabled": false,
   "timestamp": "2026-07-16T18:25:43.511Z"
@@ -453,7 +455,7 @@ Errors: `401 unauthorized` for missing or invalid seller authentication.
 
 ### `GET /v1/admin/metrics`
 
-Returns first-party product usage and conversion metrics. Authenticate with the dedicated read-only `METRICS_API_KEY`. The bootstrap `owner@loopfare.local` seller key remains supported for compatibility; ordinary seller keys receive `403 forbidden`.
+Returns first-party product usage metrics. Authenticate with the dedicated read-only `METRICS_API_KEY`. All seller keys, including the bootstrap account, receive `403 forbidden`.
 
 ```bash
 curl 'https://YOUR_LOOPFARE_HOST/v1/admin/metrics?days=30' \
@@ -546,7 +548,7 @@ Success: `200`
 }
 ```
 
-There is no project pagination in `0.2.7`.
+There is no project pagination in `0.3.0`.
 
 ### `GET /v1/projects/:id`
 
@@ -598,7 +600,7 @@ Methods are a comma-separated list containing any of:
 GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS, *
 ```
 
-The default is `GET,POST,PUT,PATCH,DELETE,HEAD,OPTIONS`. Duplicate methods are removed. `TRACE` and `CONNECT` cannot be configured.
+The default is `GET,HEAD`. Only these read-only methods can be configured by the API. Duplicate methods are removed. Paid writes are blocked until durable write idempotency is implemented.
 
 Path patterns are normalized to begin with `/` and lose a trailing slash unless the pattern is `/`. They cannot contain a query string or fragment. Supported matching forms include:
 
@@ -628,7 +630,7 @@ curl -X POST https://YOUR_LOOPFARE_HOST/v1/projects/PROJECT_ID/routes \
     "originUrl":"https://api.example.com/internal-api",
     "price":"$0.001",
     "description":"Current weather observation",
-    "methods":"GET,POST"
+    "methods":"GET,HEAD"
   }'
 ```
 
@@ -648,7 +650,7 @@ Success: `201`
     "id": "ROUTE_ID",
     "project_id": "PROJECT_ID",
     "path_pattern": "/v1/*",
-    "methods": "GET,POST",
+    "methods": "GET,HEAD",
     "origin_url": "https://api.example.com/internal-api",
     "price": "$0.001",
     "description": "Current weather observation",
@@ -674,7 +676,7 @@ Success: `200`
 { "routes": [] }
 ```
 
-There is no route pagination in `0.2.7`.
+There is no route pagination in `0.3.0`.
 
 ### `PATCH /v1/projects/:id/routes/:routeId`
 
@@ -697,7 +699,7 @@ Success: `200`
     "id": "ROUTE_ID",
     "project_id": "PROJECT_ID",
     "path_pattern": "/v1/*",
-    "methods": "GET,POST",
+    "methods": "GET,HEAD",
     "origin_url": "https://api.example.com/internal-api",
     "price": "$0.0025",
     "description": "Current weather observation",
@@ -718,7 +720,7 @@ Permanently deletes a route from an owned project.
 
 ## Payments and earnings
 
-These endpoints require seller authentication. They return application events newest first; there is no cursor, date filter, or transaction-hash filter in `0.2.7`.
+These endpoints require seller authentication. They return application events newest first; there is no cursor, date filter, or transaction-hash filter in `0.3.0`.
 
 ### `GET /v1/projects/:id/payments`
 
@@ -845,7 +847,7 @@ Behavior:
 1. If a budget token is present without `X-Loopfare-Wallet`, Loopfare returns `400 wallet_required`.
 2. With both headers, Loopfare validates the token and checks whether `spent + route price` exceeds the daily limit before it asks for or accepts payment.
 3. For an authorized dev payment or verified x402 retry, Loopfare atomically reserves the route's configured USD price before it calls the origin. Concurrent requests cannot reserve past the limit.
-4. Loopfare refunds that reservation when the origin fails, returns status `>=400`, or real settlement does not complete.
+4. Real-payment reservations remain conservatively pending when settlement is not confirmed. Missing responses are not proof of failure. Synthetic dev-mode failures can release their reservation by ID; other recovery requires authoritative evidence.
 5. Calls without both headers bypass this server-side safety rail.
 
 The wallet header is a budget lookup and payment-history hint. Loopfare does not prove that it is the signer address, so this remains a cooperative client safety rail rather than an on-chain wallet policy.

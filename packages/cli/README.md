@@ -1,5 +1,7 @@
 # `@loopfare/cli`
 
+Safety update: wallet replacement requires `--replace`; prefer `wallet import --stdin`. Remote API URLs require HTTPS, and server credentials are scoped by origin. Calls default to `--network base-sepolia --max-price 1`. Use `budget reservations` to inspect unknown outcomes. `telemetry on` opts into first-party installation metrics; the default is off. The matching server requires signed budget setup and origin verification; consult the repository's `docs/HARDENING.md` before rollout.
+
 Loopfare's command-line client lets API sellers create x402-protected routes and lets buyers make budget-aware USDC payments on Base Sepolia or Base.
 
 Loopfare is currently a Base Sepolia public beta. Do not fund a test wallet with mainnet assets.

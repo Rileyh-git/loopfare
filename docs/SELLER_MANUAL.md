@@ -1,5 +1,7 @@
 # Loopfare seller manual
 
+> The safety update requires origin credentials and verification outside dev mode, and supports only GET/HEAD paid routes. Follow the [guided setup and rotation instructions](HARDENING.md#seller-origin-setup-and-rotation) before testing a route. Project deletion now archives it; historical payments remain in the account ledger.
+
 Loopfare puts an x402 payment gate in front of an existing HTTP API. A buyer calls a Loopfare URL, receives an HTTP `402 Payment Required` challenge, signs a USDC payment, and retries. After settlement, Loopfare forwards the request to the seller's origin.
 
 This manual covers the current Loopfare 0.2 public beta. The beta runs on **Base Sepolia** (`eip155:84532`) and uses test USDC. Do not treat testnet earnings as real revenue. Mainnet is intentionally disabled until the production gates in [PRODUCTION.md](./PRODUCTION.md) are complete.
@@ -106,8 +108,8 @@ The response includes the route and a public URL. A request for `/p/weather/v1/f
 Route rules:
 
 - Prices are USD-denominated USDC amounts from `$0.000001` to `$10000`, with no more than six decimal places. The leading `$` is optional in CLI input.
-- Omitting `--methods` allows `GET,POST,PUT,PATCH,DELETE,HEAD,OPTIONS`.
-- Allowed method values are those seven methods or `*`; use a comma-separated list with no shell-expanded spaces, such as `GET,POST`.
+- Omitting `--methods` allows `GET,HEAD`.
+- Only read-only GET and HEAD are supported; paid writes remain disabled pending write-idempotency support.
 - An exact pattern such as `/v1/forecast` matches only that path.
 - A parameter segment such as `/v1/users/:id` matches one segment.
 - A trailing wildcard such as `/v1/*` matches `/v1`, `/v1/`, and descendants.
@@ -194,7 +196,7 @@ loopfare routes update \
   --project PROJECT_ID \
   --route ROUTE_ID \
   --price '$0.002' \
-  --methods GET,POST \
+  --methods GET,HEAD \
   --description "Forecast and refresh"
 ```
 

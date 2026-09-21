@@ -8,6 +8,10 @@ on:
     tags:
       - "v*"
 
+concurrency:
+  group: publish-cli-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   verify:
     runs-on: ubuntu-latest
@@ -15,6 +19,10 @@ jobs:
     permissions:
       contents: read
     steps:
+      - name: Require an immutable release tag
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+        run: test "$REF_TYPE" = tag
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
@@ -63,3 +71,13 @@ jobs:
           registry-url: https://registry.npmjs.org
           package-manager-cache: false
       - run: npm publish ./release/*.tgz --access public
+      - name: Verify registry installation
+        run: |
+          archive=$(find release -name '*.tgz' -print -quit)
+          version=$(tar -xOf "$archive" package/package.json | node -e 'let text="";process.stdin.on("data",c=>text+=c);process.stdin.on("end",()=>process.stdout.write(JSON.parse(text).version))')
+          testdir=$(mktemp -d)
+          cd "$testdir"
+          npm install --ignore-scripts "@loopfare/cli@$version"
+          ./node_modules/.bin/loopfare --version
+          ./node_modules/.bin/loopfare signup --help
+          ./node_modules/.bin/loopfare doctor --help

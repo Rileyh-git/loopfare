@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, test } from "node:test";
+import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 
 const testDirectory = mkdtempSync(join(tmpdir(), "loopfare-test-"));
 process.env.NODE_ENV = "test";
@@ -11,6 +12,7 @@ process.env.LOOPFARE_DEV_MODE = "true";
 process.env.ALLOW_PRIVATE_ORIGINS = "false";
 process.env.PUBLIC_URL = "http://localhost:4021";
 process.env.METRICS_API_KEY = "lm_test_metrics_read_only_key_1234567890";
+process.env.ORIGIN_ENCRYPTION_KEY = "11".repeat(32);
 
 const { app } = await import("../src/app.js");
 const db = await import("../src/db.js");
@@ -44,7 +46,10 @@ test("serves the marketing site with security headers", async () => {
   });
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /text\/html/);
-  assert.match(response.headers.get("content-security-policy") ?? "", /default-src 'self'/);
+  assert.match(
+    response.headers.get("content-security-policy") ?? "",
+    /default-src 'self'/,
+  );
   assert.match(response.headers.get("set-cookie") ?? "", /^lf_session=/);
   assert.equal(response.headers.get("cache-control"), "private, no-cache");
   assert.match(await response.text(), /Make every API call pay its fare/);
@@ -62,7 +67,10 @@ test("serves every public manual as accessible HTML and raw Markdown", async () 
     ]);
     assert.equal(html.status, 200, `${doc.slug} HTML`);
     assert.match(html.headers.get("content-type") ?? "", /text\/html/);
-    assert.match(await html.text(), new RegExp(doc.title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"));
+    assert.match(
+      await html.text(),
+      new RegExp(doc.title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"),
+    );
     assert.equal(markdown.status, 200, `${doc.slug} Markdown`);
     assert.match(markdown.headers.get("content-type") ?? "", /text\/markdown/);
     assert.match(await markdown.text(), /^# /);
@@ -82,12 +90,12 @@ test("reports liveness and database readiness", async () => {
   assert.equal(metadata.status, 200);
   const service = await json(metadata);
   assert.equal(service.name, "loopfare");
-  assert.equal(service.version, "0.2.7");
+  assert.equal(service.version, "0.3.0");
   assert.equal(service.network, "base-sepolia");
   assert.equal(health.status, 200);
   const healthReport = await json(health);
   assert.equal(healthReport.ok, true);
-  assert.equal(healthReport.version, "0.2.7");
+  assert.equal(healthReport.version, "0.3.0");
   assert.equal(ready.status, 200);
 });
 
@@ -179,15 +187,31 @@ test("rejects private and metadata origins before creating a route", async () =>
 });
 
 test("protects buyer budgets with a separate secret token", async () => {
-  const wallet = "0x3333333333333333333333333333333333333333";
+  const signer = privateKeyToAccount(generatePrivateKey());
+  const wallet = signer.address;
   const token = "lb_abcdefghijklmnopqrstuvwxyz1234567890";
-  const created = await app.request("/v1/buyer/budget", {
+  const challengeResponse = await app.request("/v1/buyer/budget/challenge", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       "X-Loopfare-Budget-Token": token,
     },
     body: JSON.stringify({ walletAddress: wallet, dailyLimitUsd: 5 }),
+  });
+  const challenge = await json(challengeResponse);
+  const signature = await signer.signMessage({ message: challenge.message });
+  const created = await app.request("/v1/buyer/budget", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Loopfare-Budget-Token": token,
+    },
+    body: JSON.stringify({
+      walletAddress: wallet,
+      dailyLimitUsd: 5,
+      nonce: challenge.nonce,
+      signature,
+    }),
   });
   assert.equal(created.status, 200);
 
@@ -206,9 +230,13 @@ test("atomically reserves and refunds compatible buyer budget spend", () => {
   const wallet = "0x4444444444444444444444444444444444444444";
   const token = "lb_reservation_test_token_abcdefghijklmnopqrstuvwxyz";
   assert.ok(db.setBudget(wallet, 5, token));
-  assert.equal(db.trySpendBudget(wallet, token, 4).ok, true);
+  const reservation = db.trySpendBudget(wallet, token, 4);
+  assert.equal(reservation.ok, true);
   assert.equal(db.trySpendBudget(wallet, token, 2).ok, false);
-  assert.equal(db.refundBudgetSpend(wallet, token, 4), true);
+  assert.equal(
+    db.refundBudgetSpend(wallet, token, reservation.reservationId!),
+    true,
+  );
   assert.equal(db.trySpendBudget(wallet, token, 2).ok, true);
 });
 
@@ -230,7 +258,10 @@ test("publishes canonical public URLs in x402 payment requirements", () => {
     "http://localhost:4021/demo/v1/fortune",
   );
 
-  const resource = x402.publicResourceUrl("/p/weather/current", "?units=metric");
+  const resource = x402.publicResourceUrl(
+    "/p/weather/current",
+    "?units=metric",
+  );
   const proxyRoutes = x402.buildRoutePaymentRoutes({
     method: "GET",
     path: "/p/weather/current",
@@ -256,7 +287,9 @@ test("validates prices, methods, paths, and IP ranges", () => {
   assert.equal(originSecurity.isPrivateAddress("127.0.0.1"), true);
   assert.equal(originSecurity.isPrivateAddress("10.0.0.1"), true);
   assert.equal(originSecurity.isPrivateAddress("8.8.8.8"), false);
-  assert.throws(() => originSecurity.normalizeOriginUrl("http://localhost:3000"));
+  assert.throws(() =>
+    originSecurity.normalizeOriginUrl("http://localhost:3000"),
+  );
 });
 
 test("routes a project base URL through the paid proxy handler", async () => {
@@ -298,12 +331,18 @@ test("tracks first-party usage without counting bots or health checks", async ()
     headers: { "User-Agent": "Googlebot/2.1" },
   });
   const afterBot = usage.getUsageMetrics(1);
-  assert.equal(afterBot.summary.uniqueVisitors, afterVisitor.summary.uniqueVisitors);
+  assert.equal(
+    afterBot.summary.uniqueVisitors,
+    afterVisitor.summary.uniqueVisitors,
+  );
   assert.equal(afterBot.dataQuality.botsFiltered, beforeBot + 1);
 
   const beforeHealthRequests = afterBot.summary.requestCount;
   await app.request("/health/ready");
-  assert.equal(usage.getUsageMetrics(1).summary.requestCount, beforeHealthRequests);
+  assert.equal(
+    usage.getUsageMetrics(1).summary.requestCount,
+    beforeHealthRequests,
+  );
 
   const wallet = "0x5555555555555555555555555555555555555555";
   const walletHash = usage.hashUsageIdentifier("wallet", wallet);
@@ -326,7 +365,10 @@ test("tracks first-party usage without counting bots or health checks", async ()
   assert.equal(malformedCookie.status, 200);
   assert.match(malformedCookie.headers.get("set-cookie") ?? "", /^lf_session=/);
 
-  const returningSession = usage.hashUsageIdentifier("session", "returning-test-session");
+  const returningSession = usage.hashUsageIdentifier(
+    "session",
+    "returning-test-session",
+  );
   const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1_000).toISOString();
   usage.recordUsageEvent({
     eventType: "page_view",
@@ -370,7 +412,7 @@ test("exposes owner-only aggregate metrics and funnel data", async () => {
     "lf_owner_metrics_test_key_1234567890",
   );
   const response = await app.request("/v1/admin/metrics?days=30", {
-    headers: { Authorization: `Bearer ${owner.apiKey}` },
+    headers: { Authorization: `Bearer ${process.env.METRICS_API_KEY}` },
   });
   assert.equal(response.status, 200);
   const metrics = await json(response);
@@ -387,7 +429,158 @@ test("exposes owner-only aggregate metrics and funnel data", async () => {
   assert.equal(metrics.dataQuality.healthAndAssetRequestsExcluded, true);
 
   const invalid = await app.request("/v1/admin/metrics?days=0", {
-    headers: { Authorization: `Bearer ${owner.apiKey}` },
+    headers: { Authorization: `Bearer ${process.env.METRICS_API_KEY}` },
   });
   assert.equal(invalid.status, 400);
+  const impersonation = await app.request("/v1/admin/metrics", {
+    headers: { Authorization: `Bearer ${owner.apiKey}` },
+  });
+  assert.equal(impersonation.status, 403);
+});
+
+test("archives projects without losing account payment history", () => {
+  const account = db.createAccount("archive@example.com");
+  const project = db.createProject({
+    accountId: account.account.id,
+    name: "Archive",
+    slug: "archive",
+    payTo: "0x" + "1".repeat(40),
+  });
+  const payment = db.recordPayment({
+    projectId: project.id,
+    method: "GET",
+    path: "/p/archive/test",
+    price: "$0.01",
+    status: "settled",
+  });
+  db.deleteProject(project.id);
+  assert.equal(db.getProjectBySlug(project.slug), undefined);
+  assert.equal(
+    db.listPayments({ accountId: account.account.id })[0].id,
+    payment.id,
+  );
+});
+
+test("reservation refunds use identity and do not affect another day's spend", () => {
+  const wallet = "0x" + "8".repeat(40),
+    token = "lb_midnight_abcdefghijklmnopqrstuvwxyz";
+  db.setBudget(wallet, 5, token);
+  const old = db.trySpendBudget(wallet, token, 2).reservationId!;
+  db.database
+    .prepare(
+      "UPDATE budget_reservations SET day = '2000-01-01', state = 'unknown' WHERE id = ?",
+    )
+    .run(old);
+  assert.equal(db.getBudgetForToken(wallet, token)!.spent_today_usd, 2);
+  const current = db.trySpendBudget(wallet, token, 1).reservationId!;
+  assert.ok(db.refundBudgetSpend(wallet, token, old));
+  assert.equal(db.getBudgetForToken(wallet, token)!.spent_today_usd, 1);
+  assert.equal(db.refundBudgetSpend(wallet, token, old), false);
+  db.finishBudgetReservation(current, "settled");
+  assert.equal(db.refundBudgetSpend(wallet, token, current), false);
+});
+
+test("origin secrets are encrypted and credential rotation disables the route", async () => {
+  const originAuth = await import("../src/origin-auth.js");
+  const owner = db.createAccount("origin-secret@example.com");
+  const project = db.createProject({
+    accountId: owner.account.id,
+    name: "Origin",
+    slug: "origin",
+    payTo: "0x" + "1".repeat(40),
+  });
+  const route = db.createRoute({
+    projectId: project.id,
+    pathPattern: "/*",
+    originUrl: "https://example.com",
+    price: "$0.01",
+  });
+  const secret = "origin-private-secret-" + "a".repeat(32);
+  const challenge = originAuth.configureOriginCredential(route.id, secret);
+  assert.equal(originAuth.originCredential(route.id), secret);
+  assert.equal(originAuth.originVerified(route.id), false);
+  assert.equal(db.getRouteById(route.id)!.enabled, 0);
+  assert.doesNotMatch(
+    JSON.stringify(db.listRoutes(project.id)),
+    /encrypted_secret|origin-private/,
+  );
+  const stored = db.database
+    .prepare("SELECT encrypted_secret FROM origin_credentials WHERE route_id=?")
+    .get(route.id) as { encrypted_secret: string };
+  assert.ok(!stored.encrypted_secret.includes(secret));
+  const rotated = originAuth.configureOriginCredential(
+    route.id,
+    "b".repeat(40),
+  );
+  assert.notEqual(rotated.challenge, challenge.challenge);
+  assert.equal(originAuth.originCredential(route.id), "b".repeat(40));
+});
+
+test("signed budget challenges cannot be replayed or reassigned", async () => {
+  const { budgetChallenge, authorizeBudget } = await import(
+    "../src/budget-ownership.js"
+  );
+  const signer = privateKeyToAccount(generatePrivateKey());
+  const token = "lb_signed_budget_abcdefghijklmnopqrstuvwxyz";
+  const challenge = budgetChallenge(signer.address, 5, token);
+  const signature = await signer.signMessage({ message: challenge.message });
+  assert.equal(
+    await authorizeBudget(signer.address, 6, token, challenge.nonce, signature),
+    undefined,
+  );
+  assert.ok(
+    await authorizeBudget(signer.address, 5, token, challenge.nonce, signature),
+  );
+  assert.equal(
+    await authorizeBudget(signer.address, 5, token, challenge.nonce, signature),
+    undefined,
+  );
+  const replacement = token + "_rotated";
+  const recovery = budgetChallenge(signer.address, 5, replacement);
+  assert.ok(
+    await authorizeBudget(
+      signer.address,
+      5,
+      replacement,
+      recovery.nonce,
+      await signer.signMessage({ message: recovery.message }),
+    ),
+  );
+  assert.equal(db.getBudgetForToken(signer.address, token), undefined);
+  assert.ok(db.getBudgetForToken(signer.address, replacement));
+});
+
+test("honors first-party telemetry opt-out", () => {
+  const context = usage.createRequestUsageContext({
+    requestId: "optout",
+    path: "/",
+    headers: new Headers({ "user-agent": "Mozilla/5.0", DNT: "1" }),
+  });
+  assert.equal(context.excluded, true);
+  assert.equal(context.sessionCookie, null);
+});
+
+test("expected payment challenges are not service errors", async () => {
+  const before = usage.getUsageMetrics().summary.errorCount;
+  const response = await app.request("/demo/v1/fortune");
+  assert.equal(response.status, 402);
+  assert.equal(usage.getUsageMetrics().summary.errorCount, before);
+  usage.recordUsageEvent({
+    eventType: "request_completed",
+    route: "/p/example/x",
+    statusCode: 402,
+    metadata: { outcome: "payment_denied" },
+  });
+  assert.equal(usage.getUsageMetrics().summary.errorCount, before + 1);
+});
+
+test("daily increments preserve the same challenge and testnet-volume semantics", () => {
+  const day = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+  const occurredAt = `${day}T12:00:00.000Z`;
+  const baseline = db.database.prepare("SELECT error_count, revenue_usd FROM usage_daily WHERE day=?").get(day) as { error_count: number; revenue_usd: number } | undefined;
+  usage.recordUsageEvent({ occurredAt, eventType: "request_completed", route: "/demo/v1/fortune", statusCode: 402, metadata: { outcome: "expected_challenge" } });
+  usage.recordUsageEvent({ occurredAt, eventType: "payment_settled", route: "/p/test/value", amountUsd: 5, metadata: { network: "eip155:84532", test: false } });
+  const current = db.database.prepare("SELECT error_count, revenue_usd FROM usage_daily WHERE day=?").get(day) as { error_count: number; revenue_usd: number };
+  assert.equal(current.error_count, baseline?.error_count ?? 0);
+  assert.equal(current.revenue_usd, baseline?.revenue_usd ?? 0);
 });

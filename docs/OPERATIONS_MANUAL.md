@@ -284,7 +284,7 @@ Loopfare's server does not store buyer private keys; the CLI stores one locally.
 ## Routine secret rotation
 
 - Seller API key: `loopfare rotate-key`; the previous key stops working immediately.
-- Budget token: no rotation endpoint exists. A new token cannot replace an existing token for the same wallet through the API today; handle as an engineering change or move to a new wallet record.
+- Budget token: a verified wallet controller can rotate the token using the signed challenge flow. Spend and pending reservations are preserved. See [signed budget authorization](HARDENING.md#signed-budget-authorization).
 - Buyer wallet key: create/import a replacement locally and move funds on-chain.
 - Facilitator credentials: follow the provider procedure, stage securely, redeploy, and run a low-value payment test.
 - `ADMIN_API_KEY`: changing it does not rotate an already-created bootstrap account key. Rotate through the seller endpoint instead.
