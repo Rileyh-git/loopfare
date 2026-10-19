@@ -15,17 +15,17 @@
     "test": "node --import tsx --test test/*.test.ts"
   },
   "dependencies": {
-    "@hono/node-server": "^2.0.11",
-    "@x402/core": "^2.18.0",
-    "@x402/evm": "^2.18.0",
-    "@x402/hono": "^2.18.0",
+    "@hono/node-server": "^2.1.5",
+    "@x402/core": "^2.28.0",
+    "@x402/evm": "^2.28.0",
+    "@x402/hono": "^2.28.0",
     "better-sqlite3": "^12.11.1",
     "dotenv": "^17.4.2",
-    "hono": "^4.13.8",
+    "hono": "^4.13.13",
     "nanoid": "^5.1.5",
-    "undici": "^8.10.2",
-    "viem": "^2.30.0",
-    "zod": "^4.6.5"
+    "undici": "^8.12.2",
+    "viem": "^2.57.7",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
